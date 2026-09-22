@@ -9,6 +9,7 @@ Nostr NIP-86（Relay Management API）専用のリレー管理者パネル。
 - Nostr は `@noble/curves` / `@noble/hashes` / `@scure/base` で実装
 - ログインは nsec とリレーの `wss://` を sessionStorage に保持
 - HTTP 認証は NIP-98、WebSocket 認証は NIP-42
+- 管理画面では WebSocket を常時接続し、切断時は自動で再接続する
 
 ## 開発
 

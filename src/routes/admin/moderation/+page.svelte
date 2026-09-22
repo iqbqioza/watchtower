@@ -1,13 +1,12 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
 	import Notice from '$lib/components/Notice.svelte';
 	import Panel from '$lib/components/Panel.svelte';
-	import { RelayClient } from '$lib/nostr/relay';
-	import { createAuthEvent } from '$lib/nostr/nip42';
+	import type { RelayClient } from '$lib/nostr/relay';
 	import type { NostrEvent } from '$lib/nostr/types';
-	import { session } from '$lib/session.svelte.js';
+	import { relayConnection } from '$lib/relay-connection.svelte.js';
 
 	interface QueueItem {
 		id: string;
@@ -21,9 +20,6 @@
 	let busy = $state<string | null>(null);
 	let error = $state<string | null>(null);
 	let success = $state<string | null>(null);
-	let relayNotice = $state<string | null>(null);
-	let authState = $state<'required' | 'ok' | 'failed' | null>(null);
-	let relay: RelayClient | null = null;
 
 	const canList = $derived(admin.supports('listeventsneedingmoderation'));
 	const canAllow = $derived(admin.supports('allowevent'));
@@ -41,21 +37,6 @@
 			loading = false;
 		}
 	});
-
-	onDestroy(() => relay?.close());
-
-	function relayClient(): RelayClient {
-		relay ??= new RelayClient(session.relayUrl, {
-			onNotice: (message) => (relayNotice = message),
-			// NIP-42: the relay asks before it sends any event.
-			auth: (challenge) => {
-				const secretKey = session.secretKey;
-				return secretKey ? createAuthEvent(secretKey, session.relayUrl, challenge) : null;
-			},
-			onAuth: (state) => (authState = state)
-		});
-		return relay;
-	}
 
 	/** Reads one event over the websocket, so the content can be reviewed. */
 	function fetchEvent(connection: RelayClient, id: string): Promise<NostrEvent> {
@@ -86,10 +67,16 @@
 
 	async function loadEvent(id: string): Promise<void> {
 		error = null;
+		const connection = relayConnection.client;
+		if (!connection) {
+			// The layout keeps the connection up; ask it to try again.
+			relayConnection.start();
+			error = 'The relay connection is not ready yet. Try again in a moment.';
+			return;
+		}
+
 		loadingEvent = id;
 		try {
-			const connection = relayClient();
-			if (!connection.connected) await connection.connect();
 			events[id] = await fetchEvent(connection, id);
 		} catch (cause) {
 			error = describeError(cause);
@@ -125,17 +112,19 @@
 	{#if success}
 		<Notice tone="success">{success}</Notice>
 	{/if}
-	{#if relayNotice}
-		<Notice>Relay notice: {relayNotice}</Notice>
+	{#if relayConnection.notice}
+		<Notice>Relay notice: {relayConnection.notice}</Notice>
 	{/if}
-	{#if authState === 'failed'}
+	{#if relayConnection.status === 'failed'}
 		<Notice tone="error">
 			The relay rejected our NIP-42 authentication, so it will not send events.
 		</Notice>
-	{:else if authState === 'required'}
-		<Notice>The relay asks for NIP-42 authentication before it sends events.</Notice>
-	{:else if authState === 'ok'}
-		<Notice tone="success">Authenticated with the relay (NIP-42).</Notice>
+	{:else if relayConnection.status !== 'authenticated' && relayConnection.status !== 'connected'}
+		<Notice>
+			The websocket connection is {relayConnection.status === 'connecting'
+				? 'still being made'
+				: 'offline'}; events can be read once it is up.
+		</Notice>
 	{/if}
 
 	<Panel

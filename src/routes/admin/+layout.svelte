@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { admin } from '$lib/admin.svelte.js';
+	import { relayConnection } from '$lib/relay-connection.svelte.js';
 	import { session } from '$lib/session.svelte.js';
 
 	let { children } = $props();
@@ -17,6 +20,37 @@
 		{ href: resolve('/admin/roles'), label: 'Roles' }
 	];
 
+	const statusLabels = {
+		offline: 'relay offline',
+		connecting: 'connecting...',
+		connected: 'relay connected',
+		authenticated: 'relay authenticated',
+		failed: 'authentication failed'
+	} as const;
+
+	const statusDots = {
+		offline: 'bg-neutral-500',
+		connecting: 'bg-amber-400',
+		connected: 'bg-emerald-400',
+		authenticated: 'bg-emerald-400',
+		failed: 'bg-red-400'
+	} as const;
+
+	const statusLabel = $derived(statusLabels[relayConnection.status]);
+	const statusDot = $derived(statusDots[relayConnection.status]);
+	const canReconnect = $derived(
+		relayConnection.status === 'offline' || relayConnection.status === 'failed'
+	);
+
+	// The panel keeps one connection to the relay: the method list over HTTP
+	// and the websocket that the moderation screen reads events from.
+	onMount(() => {
+		void admin.load();
+		relayConnection.start();
+	});
+
+	onDestroy(() => relayConnection.stop());
+
 	$effect(() => {
 		if (!session.isAuthenticated) {
 			void goto(resolve('/'));
@@ -24,6 +58,7 @@
 	});
 
 	function signOut() {
+		relayConnection.stop();
 		session.signOut();
 		void goto(resolve('/'));
 	}
@@ -38,7 +73,20 @@
 					<p class="truncate font-mono text-xs text-neutral-400">{session.relayUrl}</p>
 				</div>
 				<div class="flex items-center gap-3">
-					<span class="hidden max-w-64 truncate font-mono text-xs text-neutral-500 sm:block">
+					<span class="hidden items-center gap-1.5 text-xs text-neutral-500 sm:flex">
+						<span class="size-1.5 rounded-full {statusDot}"></span>
+						{statusLabel}
+					</span>
+					{#if canReconnect}
+						<button
+							type="button"
+							onclick={() => relayConnection.start()}
+							class="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-900"
+						>
+							Reconnect
+						</button>
+					{/if}
+					<span class="hidden max-w-56 truncate font-mono text-xs text-neutral-500 md:block">
 						{session.npub}
 					</span>
 					<button
@@ -53,14 +101,13 @@
 		</header>
 
 		<nav class="border-b border-neutral-800">
-			<div class="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-4">
+			<div class="mx-auto flex max-w-3xl flex-wrap gap-1 px-4 py-2">
 				{#each links as link (link.href)}
 					<a
 						href={link.href}
-						class="-mb-px border-b-2 px-3 py-2 text-sm whitespace-nowrap {page.url.pathname ===
-						link.href
-							? 'border-neutral-200 text-neutral-100'
-							: 'border-transparent text-neutral-400 hover:text-neutral-200'}"
+						class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap {page.url.pathname === link.href
+							? 'bg-neutral-800 text-neutral-100'
+							: 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
 					>
 						{link.label}
 					</a>

@@ -3,7 +3,9 @@
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
 	import Notice from '$lib/components/Notice.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import TextField from '$lib/components/TextField.svelte';
 	import ValueList, { type ValueListItem } from '$lib/components/ValueList.svelte';
 
@@ -86,7 +88,9 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="space-y-5">
+	<PageHeader title="IPs" description="Addresses that are not allowed to connect to the relay." />
+
 	{#if admin.error}
 		<Notice tone="error">{admin.error}</Notice>
 	{:else if error}
@@ -98,7 +102,10 @@
 
 	<Panel title="Blocked IPs" description="blockip / unblockip / listblockedips">
 		{#if loading}
-			<p class="text-sm text-neutral-400">Loading...</p>
+			<p class="flex items-center gap-2 text-sm text-muted">
+				<Spinner label="Loading the block list" />
+				Loading...
+			</p>
 		{:else if !canList}
 			<Notice>This relay does not support listblockedips, so current blocks cannot be shown.</Notice
 			>
@@ -118,7 +125,7 @@
 			<Notice>This relay does not support blockip.</Notice>
 		{:else}
 			<form
-				class="grid gap-3 border-t border-neutral-800 pt-4 sm:grid-cols-2"
+				class="grid gap-3 border-t border-line pt-4 sm:grid-cols-2"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void block();

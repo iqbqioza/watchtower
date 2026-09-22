@@ -3,7 +3,9 @@
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
 	import Notice from '$lib/components/Notice.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import TextField from '$lib/components/TextField.svelte';
 	import ValueList, { type ValueListItem } from '$lib/components/ValueList.svelte';
 	import { normalizeHex32 } from '$lib/nostr/hex';
@@ -85,7 +87,12 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="space-y-5">
+	<PageHeader
+		title="Events"
+		description="Events the relay refuses to serve, and single events it was told to accept."
+	/>
+
 	{#if admin.error}
 		<Notice tone="error">{admin.error}</Notice>
 	{:else if error}
@@ -97,14 +104,17 @@
 
 	<Panel title="Banned events" description="listbannedevents">
 		{#if loading}
-			<p class="text-sm text-neutral-400">Loading...</p>
+			<p class="flex items-center gap-2 text-sm text-muted">
+				<Spinner label="Loading the event ban list" />
+				Loading...
+			</p>
 		{:else if !canListBanned}
 			<Notice>This relay does not support listbannedevents, so current bans cannot be shown.</Notice
 			>
 		{:else}
 			<ValueList items={toItems(banned)} empty="No events are banned." showAction={false} />
 		{/if}
-		<p class="text-xs text-neutral-500">
+		<p class="text-xs text-muted">
 			NIP-86 has no method to lift a single event ban; allow the event instead so the relay accepts
 			it.
 		</p>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Button from './Button.svelte';
+	import CopyButton from './CopyButton.svelte';
 
 	export interface ValueListItem {
 		/** Raw value used by the action, such as a hex pubkey. */
@@ -32,22 +33,28 @@
 </script>
 
 {#if items.length === 0}
-	<p class="text-sm text-neutral-500">{empty}</p>
+	<p class="rounded-md border border-dashed border-line px-3 py-8 text-center text-sm text-muted">
+		{empty}
+	</p>
 {:else}
-	<ul class="divide-y divide-neutral-800 overflow-hidden rounded-md border border-neutral-800">
+	<ul class="divide-y divide-line overflow-hidden rounded-md border border-line">
 		{#each items as item (item.value)}
-			<li class="flex items-center justify-between gap-3 px-3 py-2">
-				<div class="min-w-0">
-					<p class="truncate font-mono text-xs text-neutral-200">{item.label}</p>
+			<li class="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-control/60">
+				<div class="min-w-0 flex-1">
+					<div class="flex items-center gap-0.5">
+						<p class="truncate font-mono text-xs text-ink">{item.label}</p>
+						<CopyButton value={item.label} />
+					</div>
 					{#if item.sublabel}
-						<p class="truncate font-mono text-[11px] text-neutral-500">{item.sublabel}</p>
+						<p class="truncate font-mono text-[11px] text-muted">{item.sublabel}</p>
 					{/if}
 					{#if item.reason}
-						<p class="truncate text-xs text-neutral-400">reason: {item.reason}</p>
+						<p class="mt-0.5 truncate text-xs text-muted">reason: {item.reason}</p>
 					{/if}
 				</div>
 				{#if showAction && actionLabel && onAction}
 					<Button
+						size="sm"
 						variant="danger"
 						disabled={busyValue === item.value}
 						onclick={() => onAction?.(item)}

@@ -3,7 +3,9 @@
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
 	import Notice from '$lib/components/Notice.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import TextField from '$lib/components/TextField.svelte';
 	import ValueList, { type ValueListItem } from '$lib/components/ValueList.svelte';
 
@@ -69,7 +71,12 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="space-y-5">
+	<PageHeader
+		title="Kinds"
+		description="When this list is not empty, the relay only accepts these event kinds."
+	/>
+
 	{#if admin.error}
 		<Notice tone="error">{admin.error}</Notice>
 	{:else if error}
@@ -81,7 +88,10 @@
 
 	<Panel title="Allowed kinds" description="allowkind / disallowkind / listallowedkinds">
 		{#if loading}
-			<p class="text-sm text-neutral-400">Loading...</p>
+			<p class="flex items-center gap-2 text-sm text-muted">
+				<Spinner label="Loading the kind list" />
+				Loading...
+			</p>
 		{:else if !canList}
 			<Notice
 				>This relay does not support listallowedkinds, so current entries cannot be shown.</Notice
@@ -106,13 +116,13 @@
 			<Notice>This relay does not support allowkind.</Notice>
 		{:else}
 			<form
-				class="flex items-end gap-3 border-t border-neutral-800 pt-4"
+				class="flex flex-wrap items-end gap-3 border-t border-line pt-4"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void allow();
 				}}
 			>
-				<div class="w-40">
+				<div class="w-32">
 					<TextField label="Kind" bind:value={kindInput} type="number" />
 				</div>
 				<Button type="submit" disabled={busy !== null}>Allow kind</Button>

@@ -11,19 +11,19 @@
 	let { title, description, action, children }: Props = $props();
 </script>
 
-<section class="rounded-lg border border-neutral-800 bg-neutral-900/40 p-4">
-	<div class="flex items-start justify-between gap-3">
+<section class="rounded-lg border border-line bg-panel panel-shadow">
+	<header class="flex flex-wrap items-start justify-between gap-3 border-b border-line px-4 py-3">
 		<div class="min-w-0">
-			<h2 class="text-sm font-semibold">{title}</h2>
+			<h2 class="text-sm font-semibold text-ink">{title}</h2>
 			{#if description}
-				<p class="mt-0.5 font-mono text-xs break-all text-neutral-500">{description}</p>
+				<p class="mt-0.5 text-xs text-muted">{description}</p>
 			{/if}
 		</div>
 		{#if action}
 			{@render action()}
 		{/if}
-	</div>
-	<div class="mt-4 space-y-4">
+	</header>
+	<div class="space-y-4 px-4 py-4">
 		{@render children()}
 	</div>
 </section>

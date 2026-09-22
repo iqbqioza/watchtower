@@ -4,6 +4,11 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { admin } from '$lib/admin.svelte.js';
+	import Button from '$lib/components/Button.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
+	import Icon from '$lib/components/Icon.svelte';
+	import Logo from '$lib/components/Logo.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import { relayConnection } from '$lib/relay-connection.svelte.js';
 	import { session } from '$lib/session.svelte.js';
 
@@ -29,11 +34,11 @@
 	} as const;
 
 	const statusDots = {
-		offline: 'bg-neutral-500',
+		offline: 'bg-muted',
 		connecting: 'bg-amber-400',
-		connected: 'bg-emerald-400',
-		authenticated: 'bg-emerald-400',
-		failed: 'bg-red-400'
+		connected: 'bg-emerald-500',
+		authenticated: 'bg-emerald-500',
+		failed: 'bg-red-500'
 	} as const;
 
 	const statusLabel = $derived(statusLabels[relayConnection.status]);
@@ -65,49 +70,49 @@
 </script>
 
 {#if session.isAuthenticated}
-	<div class="min-h-screen bg-neutral-950 text-neutral-100">
-		<header class="border-b border-neutral-800">
-			<div class="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-3">
-				<div class="min-w-0">
-					<p class="text-sm font-semibold">Tower</p>
-					<p class="truncate font-mono text-xs text-neutral-400">{session.relayUrl}</p>
+	<div class="min-h-screen bg-bg text-ink">
+		<header class="border-b border-line">
+			<div class="mx-auto flex max-w-3xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+				<a class="flex items-center gap-2" href={resolve('/admin')}>
+					<Logo size="sm" />
+					<span class="text-sm font-semibold">Tower</span>
+				</a>
+
+				<div class="flex min-w-0 items-center gap-0.5">
+					<span class="truncate font-mono text-xs text-muted">{session.relayUrl}</span>
+					<CopyButton value={session.relayUrl} label="Copy the relay URL" />
 				</div>
-				<div class="flex items-center gap-3">
-					<span class="hidden items-center gap-1.5 text-xs text-neutral-500 sm:flex">
+
+				<div class="ml-auto flex items-center gap-2">
+					<span class="hidden items-center gap-1.5 text-xs text-muted sm:flex">
 						<span class="size-1.5 rounded-full {statusDot}"></span>
 						{statusLabel}
 					</span>
 					{#if canReconnect}
-						<button
-							type="button"
-							onclick={() => relayConnection.start()}
-							class="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-900"
-						>
+						<Button size="sm" onclick={() => relayConnection.start()}>
+							<Icon name="refresh" />
 							Reconnect
-						</button>
+						</Button>
 					{/if}
-					<span class="hidden max-w-56 truncate font-mono text-xs text-neutral-500 md:block">
-						{session.npub}
-					</span>
-					<button
-						type="button"
-						onclick={signOut}
-						class="rounded-md border border-neutral-700 px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-900"
-					>
-						Sign out
-					</button>
+					<ThemeToggle />
+					<Button size="sm" onclick={signOut}>
+						<Icon name="signout" />
+						<span class="hidden sm:inline">Sign out</span>
+					</Button>
 				</div>
 			</div>
 		</header>
 
-		<nav class="border-b border-neutral-800">
+		<nav class="border-b border-line">
 			<div class="mx-auto flex max-w-3xl flex-wrap gap-1 px-4 py-2">
 				{#each links as link (link.href)}
 					<a
 						href={link.href}
-						class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap {page.url.pathname === link.href
-							? 'bg-neutral-800 text-neutral-100'
-							: 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}"
+						aria-current={page.url.pathname === link.href ? 'page' : undefined}
+						class="rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors {page.url
+							.pathname === link.href
+							? 'bg-control font-medium text-ink'
+							: 'text-muted hover:bg-control/60 hover:text-ink'}"
 					>
 						{link.label}
 					</a>

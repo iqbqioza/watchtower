@@ -1,6 +1,7 @@
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { pubkeyFromSecretKey } from './nostr/keys';
 import { normalizeRelayUrl } from './nostr/relay-url';
+import type { StorageLike } from './storage';
 
 export const SESSION_STORAGE_KEY = 'tower.session';
 
@@ -8,22 +9,6 @@ export const SESSION_STORAGE_KEY = 'tower.session';
 export interface StoredSession {
 	secretKey: Uint8Array;
 	relayUrl: string;
-}
-
-/** The part of the Storage API this module needs. */
-export interface StorageLike {
-	getItem(key: string): string | null;
-	setItem(key: string, value: string): void;
-	removeItem(key: string): void;
-}
-
-/** `sessionStorage` when it is usable; null during SSR or when blocked by the browser. */
-export function browserStorage(): StorageLike | null {
-	try {
-		return globalThis.sessionStorage ?? null;
-	} catch {
-		return null;
-	}
 }
 
 /** Encodes the secret key as hex: sessionStorage only holds strings. */
@@ -50,3 +35,5 @@ export function parseSession(raw: string | null): StoredSession | null {
 		return null;
 	}
 }
+
+export type { StorageLike };

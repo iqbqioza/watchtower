@@ -4,6 +4,21 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<meta name="color-scheme" content="light dark" />
+		<meta name="description" content="Tower - NIP-86 relay admin panel" />
+		<script>
+			// Applies the stored theme before the first paint, so a light page
+			// never flashes when dark mode is selected.
+			try {
+				const mode = localStorage.getItem('tower.theme') ?? 'system';
+				const dark =
+					mode === 'dark' ||
+					(mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+				document.documentElement.classList.toggle('dark', dark);
+			} catch {
+				// Storage can be blocked; the toggle still works for this visit.
+			}
+		</script>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

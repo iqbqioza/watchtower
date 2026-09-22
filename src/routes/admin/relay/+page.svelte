@@ -2,6 +2,7 @@
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
 	import Notice from '$lib/components/Notice.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import TextField from '$lib/components/TextField.svelte';
 
@@ -43,7 +44,12 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="space-y-5">
+	<PageHeader
+		title="Relay"
+		description="Public information about the relay, as shown in its NIP-11 document."
+	/>
+
 	{#if admin.error}
 		<Notice tone="error">{admin.error}</Notice>
 	{:else if error}
@@ -55,19 +61,19 @@
 
 	<Panel
 		title="Relay information"
-		description="These values show up in the relay's NIP-11 document."
+		description="changerelayname / changerelaydescription / changerelayicon"
 	>
 		{#if !canName}
 			<Notice>This relay does not support changerelayname.</Notice>
 		{:else}
 			<form
-				class="flex items-end gap-3"
+				class="flex flex-wrap items-end gap-3"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submit('changerelayname', name, 'name', () => (name = ''));
 				}}
 			>
-				<div class="flex-1">
+				<div class="min-w-56 flex-1">
 					<TextField label="Name" bind:value={name} placeholder="My relay" />
 				</div>
 				<Button type="submit" disabled={busy !== null}>Change name</Button>
@@ -78,7 +84,7 @@
 			<Notice>This relay does not support changerelaydescription.</Notice>
 		{:else}
 			<form
-				class="flex items-end gap-3 border-t border-neutral-800 pt-4"
+				class="flex flex-wrap items-end gap-3 border-t border-line pt-4"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submit(
@@ -89,7 +95,7 @@
 					);
 				}}
 			>
-				<div class="flex-1">
+				<div class="min-w-56 flex-1">
 					<TextField
 						label="Description"
 						bind:value={description}
@@ -104,13 +110,13 @@
 			<Notice>This relay does not support changerelayicon.</Notice>
 		{:else}
 			<form
-				class="flex items-end gap-3 border-t border-neutral-800 pt-4"
+				class="flex flex-wrap items-end gap-3 border-t border-line pt-4"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submit('changerelayicon', icon, 'icon', () => (icon = ''));
 				}}
 			>
-				<div class="flex-1">
+				<div class="min-w-56 flex-1">
 					<TextField
 						label="Icon URL"
 						bind:value={icon}

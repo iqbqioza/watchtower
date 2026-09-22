@@ -1,12 +1,7 @@
 import { npubFromPubkey, pubkeyFromSecretKey } from './nostr/keys';
 import { normalizeRelayUrl } from './nostr/relay-url';
-import {
-	browserStorage,
-	parseSession,
-	SESSION_STORAGE_KEY,
-	serializeSession,
-	type StorageLike
-} from './session';
+import { parseSession, SESSION_STORAGE_KEY, serializeSession } from './session';
+import { browserStorage, type StorageLike } from './storage';
 
 /**
  * Session of the current tab: the secret key behind the logged in nsec and the
@@ -19,7 +14,7 @@ export class SessionStore {
 	#storage: StorageLike | null;
 	#restored = false;
 
-	constructor(storage: StorageLike | null = browserStorage()) {
+	constructor(storage: StorageLike | null = browserStorage('session')) {
 		this.#storage = storage;
 	}
 

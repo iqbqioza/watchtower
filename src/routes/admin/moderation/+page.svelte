@@ -1,9 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { admin, describeError } from '$lib/admin.svelte.js';
+	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Notice from '$lib/components/Notice.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import type { RelayClient } from '$lib/nostr/relay';
 	import type { NostrEvent } from '$lib/nostr/types';
 	import { relayConnection } from '$lib/relay-connection.svelte.js';
@@ -103,7 +107,12 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="space-y-5">
+	<PageHeader
+		title="Moderation"
+		description="Events the relay is holding back until someone decides what to do with them."
+	/>
+
 	{#if admin.error}
 		<Notice tone="error">{admin.error}</Notice>
 	{:else if error}
@@ -128,39 +137,53 @@
 	{/if}
 
 	<Panel
-		title="Events waiting for moderation"
-		description="listeventsneedingmoderation · events are read over the websocket"
+		title="Events waiting for a decision"
+		description="listeventsneedingmoderation · the event itself is read over the websocket"
 	>
 		{#if loading}
-			<p class="text-sm text-neutral-400">Loading...</p>
+			<p class="flex items-center gap-2 text-sm text-muted">
+				<Spinner label="Loading the moderation queue" />
+				Loading...
+			</p>
 		{:else if !canList}
 			<Notice>This relay does not support listeventsneedingmoderation.</Notice>
 		{:else if queue.length === 0}
-			<p class="text-sm text-neutral-500">Nothing is waiting for a decision.</p>
+			<p
+				class="rounded-md border border-dashed border-line px-3 py-8 text-center text-sm text-muted"
+			>
+				Nothing is waiting for a decision.
+			</p>
 		{:else}
 			<ul class="space-y-3">
 				{#each queue as item (item.id)}
-					<li class="rounded-md border border-neutral-800 p-3">
-						<p class="truncate font-mono text-xs text-neutral-200">{item.id}</p>
-						{#if item.reason}
-							<p class="mt-1 text-xs text-neutral-400">reason: {item.reason}</p>
-						{/if}
+					<li class="rounded-lg border border-line p-3">
+						<div class="flex items-center gap-0.5">
+							<span class="truncate font-mono text-xs text-ink">{item.id}</span>
+							<CopyButton value={item.id} label="Copy the event id" />
+							{#if item.reason}
+								<Badge>{item.reason}</Badge>
+							{/if}
+						</div>
 
 						{#if events[item.id]}
 							{@const event = events[item.id]}
-							<div class="mt-3 space-y-1 rounded-md bg-neutral-900 p-3">
-								<p class="text-xs text-neutral-400">
-									kind {event.kind} · {new Date(event.created_at * 1000).toLocaleString()}
+							<div class="mt-3 space-y-1.5 rounded-md bg-control p-3">
+								<p class="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+									<Badge mono>kind {event.kind}</Badge>
+									<span>{new Date(event.created_at * 1000).toLocaleString()}</span>
 								</p>
-								<p class="truncate font-mono text-xs text-neutral-500">{event.pubkey}</p>
-								<p class="mt-2 text-sm break-words whitespace-pre-wrap text-neutral-200">
+								<div class="flex items-center gap-0.5">
+									<span class="truncate font-mono text-xs text-muted">{event.pubkey}</span>
+									<CopyButton value={event.pubkey} label="Copy the author pubkey" />
+								</div>
+								<p class="mt-2 text-sm break-words whitespace-pre-wrap text-ink">
 									{event.content}
 								</p>
 							</div>
 							<details class="mt-2">
-								<summary class="cursor-pointer text-xs text-neutral-500">Raw event</summary>
+								<summary class="cursor-pointer text-xs text-muted">Raw event</summary>
 								<pre
-									class="mt-1 overflow-x-auto rounded-md bg-neutral-900 p-3 text-xs text-neutral-400">{JSON.stringify(
+									class="mt-1.5 overflow-x-auto rounded-md border border-line p-3 text-xs text-muted">{JSON.stringify(
 										event,
 										null,
 										2
@@ -169,15 +192,21 @@
 						{/if}
 
 						<div class="mt-3 flex flex-wrap gap-2">
-							<Button onclick={() => void loadEvent(item.id)} disabled={loadingEvent === item.id}>
-								{loadingEvent === item.id
-									? 'Loading...'
-									: events[item.id]
-										? 'Reload event'
-										: 'Load event'}
+							<Button
+								size="sm"
+								onclick={() => void loadEvent(item.id)}
+								disabled={loadingEvent === item.id}
+							>
+								{#if loadingEvent === item.id}
+									<Spinner label="Reading the event" />
+									Loading...
+								{:else}
+									{events[item.id] ? 'Reload event' : 'Load event'}
+								{/if}
 							</Button>
 							{#if canAllow}
 								<Button
+									size="sm"
 									variant="primary"
 									disabled={busy === item.id}
 									onclick={() => void decide(item.id, 'allow')}
@@ -187,6 +216,7 @@
 							{/if}
 							{#if canBan}
 								<Button
+									size="sm"
 									variant="danger"
 									disabled={busy === item.id}
 									onclick={() => void decide(item.id, 'ban')}

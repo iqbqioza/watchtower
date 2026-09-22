@@ -2,6 +2,7 @@
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
 	import Notice from '$lib/components/Notice.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import TextField from '$lib/components/TextField.svelte';
 	import { pubkeyHexFromInput } from '$lib/nostr/keys';
@@ -97,7 +98,12 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="space-y-5">
+	<PageHeader
+		title="Roles"
+		description="NIP-86 has no method to list roles, so this screen only writes what you enter."
+	/>
+
 	{#if admin.error}
 		<Notice tone="error">{admin.error}</Notice>
 	{:else if error}
@@ -114,18 +120,17 @@
 		</Notice>
 	{/if}
 
-	<Panel
-		title="Role details"
-		description="createrole / editrole / deleterole — NIP-86 has no method to list roles, so fill in the values you want to write."
-	>
+	<Panel title="Role details" description="createrole / editrole / deleterole">
 		<div class="grid gap-3 sm:grid-cols-2">
 			<TextField label="Role id" bind:value={roleId} mono placeholder="moderator" />
 			<TextField label="Label" bind:value={label} placeholder="Moderator" />
 			<TextField label="Description" bind:value={description} placeholder="Can hide events" />
 			<TextField label="Color" bind:value={color} mono placeholder="#ff8800" />
-			<TextField label="Order" bind:value={order} type="number" />
+			<div class="sm:col-span-2 sm:max-w-32">
+				<TextField label="Order" bind:value={order} type="number" />
+			</div>
 		</div>
-		<div class="flex flex-wrap gap-2 border-t border-neutral-800 pt-4">
+		<div class="flex flex-wrap gap-2 border-t border-line pt-4">
 			{#if canCreate}
 				<Button variant="primary" disabled={busy !== null} onclick={() => void create()}>
 					Create role
@@ -155,7 +160,7 @@
 				/>
 				<TextField label="Role id" bind:value={targetRoleId} mono placeholder="moderator" />
 			</div>
-			<div class="flex flex-wrap gap-2 border-t border-neutral-800 pt-4">
+			<div class="flex flex-wrap gap-2 border-t border-line pt-4">
 				{#if canAssign}
 					<Button disabled={busy !== null} onclick={() => void assign('assign')}>Assign role</Button
 					>

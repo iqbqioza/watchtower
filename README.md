@@ -10,6 +10,8 @@ Nostr NIP-86（Relay Management API）専用のリレー管理者パネル。
 - ログインは nsec とリレーの `wss://` を sessionStorage に保持
 - HTTP 認証は NIP-98、WebSocket 認証は NIP-42
 - 管理画面では WebSocket を常時接続し、切断時は自動で再接続する
+- ライト / ダーク / システム追従のテーマ切替（選択は localStorage に保存）
+- 画面の色は `src/routes/layout.css` のセマンティックトークン（`bg` / `panel` / `line` / `ink` / `muted`）で統一
 
 ## 開発
 

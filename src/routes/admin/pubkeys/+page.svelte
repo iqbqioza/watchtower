@@ -3,7 +3,9 @@
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
 	import Notice from '$lib/components/Notice.svelte';
+	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import TextField from '$lib/components/TextField.svelte';
 	import ValueList, { type ValueListItem } from '$lib/components/ValueList.svelte';
 	import { npubFromPubkey, pubkeyHexFromInput } from '$lib/nostr/keys';
@@ -124,7 +126,12 @@
 	}
 </script>
 
-<div class="space-y-4">
+<div class="space-y-5">
+	<PageHeader
+		title="Pubkeys"
+		description="Who the relay refuses to accept events from, and who it always accepts."
+	/>
+
 	{#if admin.error}
 		<Notice tone="error">{admin.error}</Notice>
 	{:else if error}
@@ -136,7 +143,10 @@
 
 	<Panel title="Banned pubkeys" description="banpubkey / unbanpubkey / listbannedpubkeys">
 		{#if loading}
-			<p class="text-sm text-neutral-400">Loading...</p>
+			<p class="flex items-center gap-2 text-sm text-muted">
+				<Spinner label="Loading the ban list" />
+				Loading...
+			</p>
 		{:else if !canListBanned}
 			<Notice
 				>This relay does not support listbannedpubkeys, so current bans cannot be shown.</Notice
@@ -161,7 +171,7 @@
 			<Notice>This relay does not support banpubkey.</Notice>
 		{:else}
 			<form
-				class="grid gap-3 border-t border-neutral-800 pt-4 sm:grid-cols-2"
+				class="grid gap-3 border-t border-line pt-4 sm:grid-cols-2"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void ban();
@@ -180,7 +190,10 @@
 
 	<Panel title="Allowed pubkeys" description="allowpubkey / unallowpubkey / listallowedpubkeys">
 		{#if loading}
-			<p class="text-sm text-neutral-400">Loading...</p>
+			<p class="flex items-center gap-2 text-sm text-muted">
+				<Spinner label="Loading the allow list" />
+				Loading...
+			</p>
 		{:else if !canListAllowed}
 			<Notice
 				>This relay does not support listallowedpubkeys, so current entries cannot be shown.</Notice
@@ -205,7 +218,7 @@
 			<Notice>This relay does not support allowpubkey.</Notice>
 		{:else}
 			<form
-				class="grid gap-3 border-t border-neutral-800 pt-4 sm:grid-cols-2"
+				class="grid gap-3 border-t border-line pt-4 sm:grid-cols-2"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void allow();

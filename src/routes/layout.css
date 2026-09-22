@@ -1,1 +1,59 @@
 @import 'tailwindcss';
+
+/* Class based dark mode. The inline script in app.html sets .dark before paint. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+	color-scheme: light;
+	--tower-bg: oklch(0.98 0 0);
+	--tower-panel: oklch(1 0 0);
+	--tower-line: oklch(0.912 0 0);
+	--tower-ink: oklch(0.24 0 0);
+	--tower-muted: oklch(0.51 0 0);
+	--tower-control: oklch(0.965 0 0);
+	--tower-control-hover: oklch(0.93 0 0);
+	--tower-focus: oklch(0.44 0 0);
+	--tower-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 1px 3px rgb(0 0 0 / 0.04);
+}
+
+.dark {
+	color-scheme: dark;
+	--tower-bg: oklch(0.155 0 0);
+	--tower-panel: oklch(0.19 0 0);
+	--tower-line: oklch(0.285 0 0);
+	--tower-ink: oklch(0.96 0 0);
+	--tower-muted: oklch(0.68 0 0);
+	--tower-control: oklch(0.23 0 0);
+	--tower-control-hover: oklch(0.275 0 0);
+	--tower-focus: oklch(0.86 0 0);
+	--tower-shadow: none;
+}
+
+/* Semantic colors: every component uses these instead of raw palette values. */
+@theme inline {
+	--color-bg: var(--tower-bg);
+	--color-panel: var(--tower-panel);
+	--color-line: var(--tower-line);
+	--color-ink: var(--tower-ink);
+	--color-muted: var(--tower-muted);
+	--color-control: var(--tower-control);
+	--color-control-hover: var(--tower-control-hover);
+	--color-focus: var(--tower-focus);
+}
+
+@utility panel-shadow {
+	box-shadow: var(--tower-shadow);
+}
+
+@layer base {
+	body {
+		background-color: var(--tower-bg);
+		color: var(--tower-ink);
+		-webkit-font-smoothing: antialiased;
+	}
+
+	::selection {
+		background-color: var(--tower-ink);
+		color: var(--tower-bg);
+	}
+}

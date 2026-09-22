@@ -1,5 +1,5 @@
 import { base64 } from '@scure/base';
-import { utf8ToBytes } from '@noble/hashes/utils.js';
+import { bytesToHex, randomBytes, utf8ToBytes } from '@noble/hashes/utils.js';
 import { finalizeEvent } from './event';
 import { sha256Hex } from './hash';
 import type { NostrEvent } from './types';
@@ -16,6 +16,8 @@ export interface HttpAuthRequest {
 	/** Exact request body; hashed into the `payload` tag when present. */
 	body?: string;
 	created_at?: number;
+	/** Fixed nonce for tests; production uses random bytes. */
+	nonce?: string;
 }
 
 /** NIP-98 event that authorizes one HTTP request. */
@@ -27,6 +29,9 @@ export function createHttpAuthEvent(secretKey: Uint8Array, request: HttpAuthRequ
 	if (request.body !== undefined) {
 		tags.push(['payload', sha256Hex(request.body)]);
 	}
+	// Relays that remember used auth events answer 401 when the same event is
+	// sent twice, and two calls in the same second would otherwise share an id.
+	tags.push(['nonce', request.nonce ?? bytesToHex(randomBytes(8))]);
 	return finalizeEvent(secretKey, {
 		kind: HTTP_AUTH_KIND,
 		created_at: request.created_at,

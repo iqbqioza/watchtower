@@ -20,7 +20,8 @@ describe('createHttpAuthEvent', () => {
 			url: RELAY_URL,
 			method: 'post',
 			body: BODY,
-			created_at: CREATED_AT
+			created_at: CREATED_AT,
+			nonce: 'test-nonce'
 		});
 
 		expect(event.kind).toBe(HTTP_AUTH_KIND);
@@ -29,7 +30,8 @@ describe('createHttpAuthEvent', () => {
 		expect(event.tags).toEqual([
 			['u', RELAY_URL],
 			['method', 'POST'],
-			['payload', sha256Hex(BODY)]
+			['payload', sha256Hex(BODY)],
+			['nonce', 'test-nonce']
 		]);
 		expect(verifyEvent(event)).toBe(true);
 	});
@@ -37,11 +39,25 @@ describe('createHttpAuthEvent', () => {
 	it('omits the payload tag when there is no body', () => {
 		const event = createHttpAuthEvent(SECRET_KEY, { url: RELAY_URL, method: 'GET' });
 
-		expect(event.tags).toEqual([
+		expect(event.tags.slice(0, 2)).toEqual([
 			['u', RELAY_URL],
 			['method', 'GET']
 		]);
 		expect(event.tags.some(([tag]) => tag === 'payload')).toBe(false);
+	});
+
+	it('adds a random nonce so that repeated calls are not rejected as replays', () => {
+		const request = { url: RELAY_URL, method: 'POST', body: BODY, created_at: CREATED_AT };
+		const first = createHttpAuthEvent(SECRET_KEY, request);
+		const second = createHttpAuthEvent(SECRET_KEY, request);
+
+		const nonce = (event: { tags: string[][] }): string | undefined =>
+			event.tags.find(([tag]) => tag === 'nonce')?.[1];
+		expect(nonce(first)).toMatch(/^[0-9a-f]{16}$/);
+		expect(nonce(first)).not.toBe(nonce(second));
+		expect(first.id).not.toBe(second.id);
+		expect(verifyEvent(first)).toBe(true);
+		expect(verifyEvent(second)).toBe(true);
 	});
 
 	it('changes the payload tag when the body changes', () => {

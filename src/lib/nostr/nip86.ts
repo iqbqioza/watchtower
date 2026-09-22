@@ -64,8 +64,9 @@ export interface Nip86Client {
 }
 
 /**
- * Calls one management method. The `u` tag carries the relay URL (NIP-86) and
- * the `payload` tag the sha256 of the exact body that is sent.
+ * Calls one management method. The `payload` tag commits to the exact body that
+ * is sent. The `u` tag follows NIP-98 (the absolute request URL); relays that
+ * only accept the websocket form get a second try before giving up.
  */
 export async function callNip86<T = unknown>(
 	options: Nip86ClientOptions,
@@ -73,22 +74,33 @@ export async function callNip86<T = unknown>(
 	params: unknown[] = []
 ): Promise<T> {
 	const relayUrl = normalizeRelayUrl(options.relayUrl);
+	const endpoint = managementUrl(relayUrl);
 	const body = JSON.stringify({ method, params } satisfies Nip86Request);
 	const fetchFn = options.fetch ?? globalThis.fetch;
 
-	const response = await fetchFn(managementUrl(relayUrl), {
-		method: 'POST',
-		headers: {
-			'Content-Type': NIP86_CONTENT_TYPE,
-			Authorization: createAuthorizationHeader(options.secretKey, {
-				url: relayUrl,
-				method: 'POST',
-				body,
-				created_at: options.created_at
-			})
-		},
-		body
-	});
+	async function send(uTag: string): Promise<Response> {
+		return fetchFn(endpoint, {
+			method: 'POST',
+			headers: {
+				'Content-Type': NIP86_CONTENT_TYPE,
+				Authorization: createAuthorizationHeader(options.secretKey, {
+					url: uTag,
+					method: 'POST',
+					body,
+					created_at: options.created_at
+				})
+			},
+			body
+		});
+	}
+
+	let response = await send(endpoint);
+	if (response.status === 401 || response.status === 403) {
+		// NIP-86 calls the u tag "the relay URL", so some relays compare it
+		// against the websocket URL instead of the request URL.
+		await response.body?.cancel();
+		response = await send(relayUrl);
+	}
 
 	if (response.status === 401 || response.status === 403) {
 		throw new Nip86AuthError(`relay rejected the request (HTTP ${response.status})`);

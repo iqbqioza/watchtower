@@ -28,16 +28,24 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-function fakeFetch(response: () => Response): {
+function fakeFetch(...responses: Array<() => Response>): {
 	calls: Captured[];
 	fetch: typeof globalThis.fetch;
 } {
 	const calls: Captured[] = [];
 	const fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 		calls.push({ url: String(input), init: init ?? {} });
-		return response();
+		const index = Math.min(calls.length - 1, responses.length - 1);
+		return responses[index]();
 	}) as typeof globalThis.fetch;
 	return { calls, fetch };
+}
+
+function uTagOf(call: Captured): string {
+	const encoded = headersOf(call).Authorization.slice('Nostr '.length);
+	const event = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
+	const tag = (event.tags as string[][]).find(([name]) => name === 'u');
+	return tag?.[1] ?? '';
 }
 
 function headersOf(call: Captured): Record<string, string> {
@@ -61,7 +69,7 @@ describe('callNip86', () => {
 		expect(headersOf(calls[0]).Authorization).toMatch(/^Nostr [A-Za-z0-9+/]+={0,2}$/);
 	});
 
-	it('signs the exact body that is sent, with the relay URL in the u tag', async () => {
+	it('signs the exact body that is sent, with the request URL in the u tag', async () => {
 		const { calls, fetch } = fakeFetch(() => jsonResponse({ result: true }));
 		const params = [PUBKEY, 'spam'];
 		await callNip86(
@@ -77,7 +85,7 @@ describe('callNip86', () => {
 		const event = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'));
 		expect(verifyEvent(event)).toBe(true);
 		expect(event.created_at).toBe(CREATED_AT);
-		expect(event.tags).toContainEqual(['u', RELAY_URL]);
+		expect(event.tags).toContainEqual(['u', 'https://relay.example.com/']);
 		expect(event.tags).toContainEqual(['method', 'POST']);
 		expect(event.tags).toContainEqual(['payload', sha256Hex(body)]);
 	});
@@ -90,12 +98,25 @@ describe('callNip86', () => {
 		);
 
 		expect(calls[0].url).toBe('https://relay.example.com/');
-		const event = JSON.parse(
-			Buffer.from(headersOf(calls[0]).Authorization.slice('Nostr '.length), 'base64').toString(
-				'utf8'
-			)
+		expect(uTagOf(calls[0])).toBe('https://relay.example.com/');
+	});
+
+	it('retries with the relay URL for relays that want the websocket form', async () => {
+		const { calls, fetch } = fakeFetch(
+			() => jsonResponse({ error: 'unauthorized' }, 401),
+			() => jsonResponse({ result: ['banpubkey'] })
 		);
-		expect(event.tags).toContainEqual(['u', RELAY_URL]);
+		const result = await callNip86(
+			{ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch, created_at: CREATED_AT },
+			'supportedmethods'
+		);
+
+		expect(result).toEqual(['banpubkey']);
+		expect(calls).toHaveLength(2);
+		expect(uTagOf(calls[0])).toBe('https://relay.example.com/');
+		expect(uTagOf(calls[1])).toBe(RELAY_URL);
+		// The body must stay identical, because the payload tag commits to it.
+		expect(calls[1].init.body).toBe(calls[0].init.body);
 	});
 
 	it('returns the result of the call', async () => {
@@ -110,10 +131,11 @@ describe('callNip86', () => {
 	});
 
 	it('reports a missing authorization as an auth error', async () => {
-		const { fetch } = fakeFetch(() => jsonResponse({ error: 'missing auth' }, 401));
+		const { calls, fetch } = fakeFetch(() => jsonResponse({ error: 'unauthorized' }, 401));
 		await expect(
 			callNip86({ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch }, 'supportedmethods')
 		).rejects.toBeInstanceOf(Nip86AuthError);
+		expect(calls).toHaveLength(2);
 	});
 
 	it('turns the error field of a 200 response into an error', async () => {

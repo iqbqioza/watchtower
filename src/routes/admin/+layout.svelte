@@ -43,12 +43,10 @@
 		failed: 'bg-red-500'
 	} as const;
 
-	const statusLabel = $derived(
-		signerActivity.pending ? 'waiting for extension approval' : statusLabels[relayConnection.status]
-	);
-	const statusDot = $derived(
-		signerActivity.pending ? 'bg-amber-400' : statusDots[relayConnection.status]
-	);
+	// The header reports the connection only; extension prompts are shown by the
+	// banner below, so the text does not change while pages load.
+	const statusLabel = $derived(statusLabels[relayConnection.status]);
+	const statusDot = $derived(statusDots[relayConnection.status]);
 	const canReconnect = $derived(
 		relayConnection.status === 'offline' || relayConnection.status === 'failed'
 	);

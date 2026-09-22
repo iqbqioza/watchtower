@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { RelayClient } from './relay';
+import { RelayClient, type RelayClientOptions } from './relay';
 import type { NostrEvent, NostrFilter } from './types';
 
 const EVENT: NostrEvent = {
@@ -68,9 +68,7 @@ class FakeSocket {
 	}
 }
 
-function createClient(
-	options: { onNotice?: (m: string) => void; onDisconnect?: (r: string) => void } = {}
-) {
+function createClient(options: RelayClientOptions = {}) {
 	const sockets: FakeSocket[] = [];
 	const urls: string[] = [];
 	const client = new RelayClient('wss://relay.example.com', {
@@ -250,5 +248,119 @@ describe('RelayClient notices and disconnects', () => {
 
 		expect(sockets[0].readyState).toBe(3);
 		expect(onDisconnect).not.toHaveBeenCalled();
+	});
+});
+
+const AUTH_EVENT: NostrEvent = {
+	id: 'a'.repeat(64),
+	pubkey: 'f'.repeat(64),
+	sig: 'b'.repeat(128),
+	created_at: 1_700_000_000,
+	kind: 22242,
+	tags: [
+		['relay', 'wss://relay.example.com/'],
+		['challenge', 'challenge-1']
+	],
+	content: ''
+};
+
+describe('RelayClient authentication', () => {
+	async function connected(options: RelayClientOptions = {}) {
+		const { client, sockets } = createClient(options);
+		const connecting = client.connect();
+		sockets[0].open();
+		await connecting;
+		return { client, socket: sockets[0] };
+	}
+
+	it('answers a challenge with the signed event', async () => {
+		const auth = vi.fn(() => AUTH_EVENT);
+		const { socket } = await connected({ auth });
+
+		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+
+		expect(auth).toHaveBeenCalledWith('challenge-1');
+		expect(socket.lastSent).toEqual(['AUTH', AUTH_EVENT]);
+	});
+
+	it('keeps the subscription and retries it after the relay accepts the auth', async () => {
+		const onAuth = vi.fn();
+		const { client, socket } = await connected({ auth: () => AUTH_EVENT, onAuth });
+		const subscription = client.subscribe([FILTER]);
+
+		socket.message(
+			JSON.stringify(['CLOSED', subscription.id, 'auth-required: please authenticate'])
+		);
+		expect(client.authenticated).toBe(false);
+		expect(client.authRequested).toBe(true);
+
+		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+		socket.message(JSON.stringify(['OK', AUTH_EVENT.id, true, '']));
+
+		expect(onAuth).toHaveBeenCalledWith('ok');
+		expect(client.authenticated).toBe(true);
+		expect(client.authRequested).toBe(true);
+		// The REQ is sent again, because the relay ignored it before the auth.
+		expect(socket.lastSent).toEqual(['REQ', subscription.id, FILTER]);
+	});
+
+	it('reports a rejected authentication event', async () => {
+		const onAuth = vi.fn();
+		const onClosed = vi.fn();
+		const onEvent = vi.fn();
+		const { client, socket } = await connected({ auth: () => AUTH_EVENT, onAuth });
+		const subscription = client.subscribe([FILTER], { onClosed, onEvent });
+
+		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+		socket.message(JSON.stringify(['OK', AUTH_EVENT.id, false, 'invalid: bad signature']));
+
+		expect(onAuth).toHaveBeenCalledWith('failed');
+		expect(client.authenticated).toBe(false);
+		// A failed auth does not silently drop the subscription.
+		expect(onClosed).not.toHaveBeenCalled();
+		socket.message(JSON.stringify(['EVENT', subscription.id, EVENT]));
+		expect(onEvent).toHaveBeenCalledWith(EVENT);
+		expect(client.connected).toBe(true);
+	});
+
+	it('reports that the relay wants authentication when no signer is set', async () => {
+		const onAuth = vi.fn();
+		const { socket } = await connected({ onAuth });
+
+		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+
+		expect(onAuth).toHaveBeenCalledWith('required');
+		expect(socket.sent).toHaveLength(0);
+	});
+
+	it('reports that authentication is needed when the signer declines', async () => {
+		const onAuth = vi.fn();
+		const auth = vi.fn(() => null);
+		const { socket } = await connected({ auth, onAuth });
+
+		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+
+		expect(onAuth).toHaveBeenCalledWith('required');
+		expect(socket.sent).toHaveLength(0);
+	});
+
+	it('reports a failure when signing throws', async () => {
+		const onAuth = vi.fn();
+		const auth = vi.fn(() => {
+			throw new Error('no key');
+		});
+		const { socket } = await connected({ auth, onAuth });
+
+		expect(() => socket.message(JSON.stringify(['AUTH', 'challenge-1']))).not.toThrow();
+		expect(onAuth).toHaveBeenCalledWith('failed');
+	});
+
+	it('ignores OK messages for other events', async () => {
+		const onAuth = vi.fn();
+		const { socket } = await connected({ auth: () => AUTH_EVENT, onAuth });
+
+		socket.message(JSON.stringify(['OK', 'c'.repeat(64), true, '']));
+
+		expect(onAuth).not.toHaveBeenCalled();
 	});
 });

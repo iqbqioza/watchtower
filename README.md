@@ -8,6 +8,7 @@ Nostr NIP-86（Relay Management API）専用のリレー管理者パネル。
 - CSR のみ（`ssr = false`、adapter-static の SPA フォールバック）
 - Nostr は `@noble/curves` / `@noble/hashes` / `@scure/base` で実装
 - ログインは nsec とリレーの `wss://` を sessionStorage に保持
+- HTTP 認証は NIP-98、WebSocket 認証は NIP-42
 
 ## 開発
 
@@ -33,7 +34,6 @@ npm run dev
 ## 制限
 
 - リレーが対応していないメソッドの画面は「未対応」と表示する
-- NIP-42 (AUTH) は未対応
 - ロールの一覧取得メソッドが NIP-86 に無いため、ロール画面は書き込みのみ
 
 ## チェック

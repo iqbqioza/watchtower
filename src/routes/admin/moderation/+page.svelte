@@ -5,6 +5,7 @@
 	import Notice from '$lib/components/Notice.svelte';
 	import Panel from '$lib/components/Panel.svelte';
 	import { RelayClient } from '$lib/nostr/relay';
+	import { createAuthEvent } from '$lib/nostr/nip42';
 	import type { NostrEvent } from '$lib/nostr/types';
 	import { session } from '$lib/session.svelte.js';
 
@@ -21,6 +22,7 @@
 	let error = $state<string | null>(null);
 	let success = $state<string | null>(null);
 	let relayNotice = $state<string | null>(null);
+	let authState = $state<'required' | 'ok' | 'failed' | null>(null);
 	let relay: RelayClient | null = null;
 
 	const canList = $derived(admin.supports('listeventsneedingmoderation'));
@@ -43,7 +45,15 @@
 	onDestroy(() => relay?.close());
 
 	function relayClient(): RelayClient {
-		relay ??= new RelayClient(session.relayUrl, { onNotice: (message) => (relayNotice = message) });
+		relay ??= new RelayClient(session.relayUrl, {
+			onNotice: (message) => (relayNotice = message),
+			// NIP-42: the relay asks before it sends any event.
+			auth: (challenge) => {
+				const secretKey = session.secretKey;
+				return secretKey ? createAuthEvent(secretKey, session.relayUrl, challenge) : null;
+			},
+			onAuth: (state) => (authState = state)
+		});
 		return relay;
 	}
 
@@ -56,7 +66,12 @@
 			);
 			const subscription = connection.subscribe([{ ids: [id], limit: 1 }], {
 				onEvent: (event) => finish(() => resolve(event)),
-				onEose: () => finish(() => reject(new Error('the relay does not have this event'))),
+				onEose: () => {
+					// Before NIP-42 is accepted the relay answers EOSE without
+					// events, and the REQ is sent again after authentication.
+					if (!connection.authenticated && connection.authRequested) return;
+					finish(() => reject(new Error('the relay does not have this event')));
+				},
 				onClosed: (message) =>
 					finish(() => reject(new Error(message || 'the subscription was closed')))
 			});
@@ -112,6 +127,15 @@
 	{/if}
 	{#if relayNotice}
 		<Notice>Relay notice: {relayNotice}</Notice>
+	{/if}
+	{#if authState === 'failed'}
+		<Notice tone="error">
+			The relay rejected our NIP-42 authentication, so it will not send events.
+		</Notice>
+	{:else if authState === 'required'}
+		<Notice>The relay asks for NIP-42 authentication before it sends events.</Notice>
+	{:else if authState === 'ok'}
+		<Notice tone="success">Authenticated with the relay (NIP-42).</Notice>
 	{/if}
 
 	<Panel

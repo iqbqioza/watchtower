@@ -1,19 +1,15 @@
 {
-  "name": "tower",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "rust-lang.rust-analyzer",
-        "tamasfe.even-better-toml"
-      ]
-    }
-  },
-  "remoteUser": "vscode",
-  "forwardPorts": [53000],
-  "postCreateCommand": "rustc --version && cargo --version",
-  "runArgs": ["--init"]
+	"name": "tower",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": ["rust-lang.rust-analyzer", "tamasfe.even-better-toml"]
+		}
+	},
+	"remoteUser": "vscode",
+	"forwardPorts": [53000],
+	"postCreateCommand": "rustc --version && cargo --version",
+	"runArgs": ["--init"]
 }
-

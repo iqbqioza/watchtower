@@ -1,5 +1,5 @@
 import { createAuthorizationHeader } from './nip98';
-import { managementUrl, normalizeRelayUrl } from './relay-url';
+import { normalizeRelayUrl, relayHttpUrl } from './relay-url';
 
 /** Content type that relays expect for management calls (NIP-86). */
 export const NIP86_CONTENT_TYPE = 'application/nostr+json+rpc';
@@ -74,7 +74,7 @@ export async function callNip86<T = unknown>(
 	params: unknown[] = []
 ): Promise<T> {
 	const relayUrl = normalizeRelayUrl(options.relayUrl);
-	const endpoint = managementUrl(relayUrl);
+	const endpoint = relayHttpUrl(relayUrl);
 	const body = JSON.stringify({ method, params } satisfies Nip86Request);
 	const fetchFn = options.fetch ?? globalThis.fetch;
 

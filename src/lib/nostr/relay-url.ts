@@ -38,8 +38,8 @@ export function normalizeRelayUrl(input: string): string {
 	return url.toString();
 }
 
-/** HTTP endpoint of the NIP-86 management API: the relay URL with an HTTP scheme. */
-export function managementUrl(relayUrl: string): string {
+/** The plain HTTP URL of the relay, used by NIP-11 and NIP-86. */
+export function relayHttpUrl(relayUrl: string): string {
 	const url = new URL(normalizeRelayUrl(relayUrl));
 	url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
 	return url.toString();

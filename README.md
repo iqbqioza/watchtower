@@ -9,6 +9,7 @@ Nostr NIP-86（Relay Management API）専用のリレー管理者パネル。
 - Nostr は `@noble/curves` / `@noble/hashes` / `@scure/base` で実装
 - ログインは nsec とリレーの `wss://` を sessionStorage に保持
 - HTTP 認証は NIP-98、WebSocket 認証は NIP-42
+- リレー情報は NIP-11（`Accept: application/nostr+json`）から読み込む
 - 管理画面では WebSocket を常時接続し、切断時は自動で再接続する
 - ライト / ダーク / システム追従のテーマ切替（選択は localStorage に保存）
 - 画面の色は `src/routes/layout.css` のセマンティックトークン（`bg` / `panel` / `line` / `ink` / `muted`）で統一
@@ -31,7 +32,7 @@ npm run dev
 - `/admin/moderation` モデレーション待ち（WebSocket で中身を取得して確認）
 - `/admin/ips` IP アドレスのブロック
 - `/admin/kinds` 許可する kind
-- `/admin/relay` リレー情報（名前・説明・アイコン）
+- `/admin/relay` リレー情報（NIP-11 での読み込みと、名前・説明・アイコンの変更）
 - `/admin/roles` ロール操作（作成・更新・削除・割当・解除）
 
 ## 制限

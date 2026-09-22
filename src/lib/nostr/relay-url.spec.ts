@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { managementUrl, normalizeRelayUrl } from './relay-url';
+import { normalizeRelayUrl, relayHttpUrl } from './relay-url';
 
 describe('normalizeRelayUrl', () => {
 	it('accepts ws and wss URLs and lowercases the host', () => {
@@ -29,15 +29,13 @@ describe('normalizeRelayUrl', () => {
 	});
 });
 
-describe('managementUrl', () => {
+describe('relayHttpUrl', () => {
 	it('swaps the websocket scheme for its HTTP counterpart', () => {
-		expect(managementUrl('wss://relay.example.com/')).toBe('https://relay.example.com/');
-		expect(managementUrl('ws://localhost:7777/')).toBe('http://localhost:7777/');
+		expect(relayHttpUrl('wss://relay.example.com/')).toBe('https://relay.example.com/');
+		expect(relayHttpUrl('ws://localhost:7777/')).toBe('http://localhost:7777/');
 	});
 
 	it('keeps the path of the relay URL', () => {
-		expect(managementUrl('https://relay.example.com/nostr')).toBe(
-			'https://relay.example.com/nostr'
-		);
+		expect(relayHttpUrl('https://relay.example.com/nostr')).toBe('https://relay.example.com/nostr');
 	});
 });

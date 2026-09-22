@@ -46,6 +46,19 @@
 }
 
 @layer base {
+	html {
+		/* Reserve the scrollbar track on every page, so the layout does not
+		   jump sideways when one page is taller than the viewport. */
+		scrollbar-gutter: stable;
+	}
+
+	/* Browsers without scrollbar-gutter keep the track visible instead. */
+	@supports not (scrollbar-gutter: stable) {
+		html {
+			overflow-y: scroll;
+		}
+	}
+
 	body {
 		background-color: var(--tower-bg);
 		color: var(--tower-ink);

@@ -1,12 +1,21 @@
 import { hexToBytes } from '@noble/hashes/utils.js';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { finalizeEvent } from './nostr/event';
+import { pubkeyFromSecretKey } from './nostr/keys';
 import type { RelayClient, RelayClientOptions } from './nostr/relay';
+import type { EventTemplate } from './nostr/types';
 import { RelayConnection } from './relay-connection.svelte.js';
 import { session } from './session.svelte.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// BIP-340 test vector 0 secret key.
+// BIP-340 test vector 0 secret key; it plays the part of the extension key.
 const SECRET_KEY = hexToBytes('0000000000000000000000000000000000000000000000000000000000000003');
+const PUBKEY = 'f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9';
 const RELAY_URL = 'wss://relay.example.com/';
+
+const extension = {
+	getPublicKey: vi.fn(async () => PUBKEY),
+	signEvent: vi.fn(async (template: EventTemplate) => finalizeEvent(SECRET_KEY, template))
+};
 
 interface FakeClient {
 	connected: boolean;
@@ -37,11 +46,19 @@ function createFactory(): {
 	return { clients, factory };
 }
 
-afterEach(() => session.signOut());
+beforeEach(() => {
+	vi.stubGlobal('nostr', extension);
+});
+
+afterEach(() => {
+	session.signOut();
+	vi.unstubAllGlobals();
+	vi.clearAllMocks();
+});
 
 describe('RelayConnection', () => {
 	it('connects for the signed in session', async () => {
-		session.signIn(SECRET_KEY, RELAY_URL);
+		await session.signIn(RELAY_URL);
 		const { clients, factory } = createFactory();
 		const connection = new RelayConnection(factory);
 
@@ -53,21 +70,22 @@ describe('RelayConnection', () => {
 		expect(connection.client).not.toBeNull();
 	});
 
-	it('signs the NIP-42 challenge with the session key', () => {
-		session.signIn(SECRET_KEY, RELAY_URL);
+	it('signs the NIP-42 challenge with the session account', async () => {
+		await session.signIn(RELAY_URL);
 		const { clients, factory } = createFactory();
 		const connection = new RelayConnection(factory);
 		connection.start();
 
-		const event = clients[0].options.auth?.('challenge-1') ?? null;
+		const signed = await clients[0].options.auth?.('challenge-1');
 
-		expect(event?.kind).toBe(22242);
-		expect(event?.tags).toContainEqual(['relay', RELAY_URL]);
-		expect(event?.tags).toContainEqual(['challenge', 'challenge-1']);
+		expect(signed?.kind).toBe(22242);
+		expect(signed?.pubkey).toBe(PUBKEY);
+		expect(signed?.tags).toContainEqual(['relay', RELAY_URL]);
+		expect(signed?.tags).toContainEqual(['challenge', 'challenge-1']);
 	});
 
 	it('reports the authenticated state from the relay', async () => {
-		session.signIn(SECRET_KEY, RELAY_URL);
+		await session.signIn(RELAY_URL);
 		const { clients, factory } = createFactory();
 		const connection = new RelayConnection(factory);
 		connection.start();
@@ -81,7 +99,7 @@ describe('RelayConnection', () => {
 	});
 
 	it('keeps one client while it stays connected', async () => {
-		session.signIn(SECRET_KEY, RELAY_URL);
+		await session.signIn(RELAY_URL);
 		const { clients, factory } = createFactory();
 		const connection = new RelayConnection(factory);
 		connection.start();
@@ -94,7 +112,7 @@ describe('RelayConnection', () => {
 	it('reconnects after the relay drops the connection', async () => {
 		vi.useFakeTimers();
 		try {
-			session.signIn(SECRET_KEY, RELAY_URL);
+			await session.signIn(RELAY_URL);
 			const { clients, factory } = createFactory();
 			const connection = new RelayConnection(factory, 1000);
 			connection.start();
@@ -118,7 +136,7 @@ describe('RelayConnection', () => {
 	it('stays closed after an explicit stop', async () => {
 		vi.useFakeTimers();
 		try {
-			session.signIn(SECRET_KEY, RELAY_URL);
+			await session.signIn(RELAY_URL);
 			const { clients, factory } = createFactory();
 			const connection = new RelayConnection(factory, 1000);
 			connection.start();
@@ -143,5 +161,30 @@ describe('RelayConnection', () => {
 
 		expect(clients).toHaveLength(0);
 		expect(connection.status).toBe('offline');
+	});
+
+	it('stays offline when the extension is gone', async () => {
+		await session.signIn(RELAY_URL);
+		vi.stubGlobal('nostr', undefined);
+
+		const { clients, factory } = createFactory();
+		const connection = new RelayConnection(factory);
+		connection.start();
+
+		expect(clients).toHaveLength(0);
+		expect(connection.status).toBe('offline');
+	});
+
+	it('signs the challenge through the extension, not the page', async () => {
+		await session.signIn(RELAY_URL);
+		const { clients, factory } = createFactory();
+		const connection = new RelayConnection(factory);
+		connection.start();
+
+		await clients[0].options.auth?.('challenge-1');
+
+		expect(extension.signEvent).toHaveBeenCalledOnce();
+		expect(await session.signer?.getPublicKey()).toBe(PUBKEY);
+		expect(pubkeyFromSecretKey(SECRET_KEY)).toBe(PUBKEY);
 	});
 });

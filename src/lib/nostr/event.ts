@@ -29,11 +29,16 @@ export function signSchnorr(
 	return bytesToHex(schnorr.sign(messageHash, secretKey, auxRandom));
 }
 
+/** Current Unix time in seconds, as used by Nostr events. */
+export function nowSeconds(): number {
+	return Math.floor(Date.now() / 1000);
+}
+
 /** Fills in pubkey, created_at, id and sig to produce a signed event. */
 export function finalizeEvent(secretKey: Uint8Array, template: EventTemplate): NostrEvent {
 	const event: SerializableEvent = {
 		pubkey: bytesToHex(schnorr.getPublicKey(secretKey)),
-		created_at: template.created_at ?? Math.floor(Date.now() / 1000),
+		created_at: template.created_at ?? nowSeconds(),
 		kind: template.kind,
 		tags: template.tags ?? [],
 		content: template.content ?? ''

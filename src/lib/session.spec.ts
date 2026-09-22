@@ -1,56 +1,62 @@
-import { hexToBytes } from '@noble/hashes/utils.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 import { parseSession, serializeSession } from './session';
 
-// BIP-340 test vector 0 secret key.
-const SECRET_KEY_HEX = '0000000000000000000000000000000000000000000000000000000000000003';
-const SECRET_KEY = hexToBytes(SECRET_KEY_HEX);
+const PUBKEY = 'f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9';
 const RELAY_URL = 'wss://relay.example.com/';
 
 describe('serializeSession', () => {
-	it('stores the secret key as hex and the normalized relay URL', () => {
-		expect(JSON.parse(serializeSession(SECRET_KEY, ' https://relay.example.com '))).toEqual({
-			secretKey: SECRET_KEY_HEX,
+	it('stores the account and the relay, without any key material', () => {
+		const stored = serializeSession(PUBKEY.toUpperCase(), ' https://relay.example.com ');
+
+		expect(JSON.parse(stored)).toEqual({
+			signer: 'nip07',
+			pubkey: PUBKEY,
 			relayUrl: RELAY_URL
 		});
+		expect(stored).not.toContain('secret');
 	});
 
-	it('refuses to store a session with an invalid relay URL', () => {
-		expect(() => serializeSession(SECRET_KEY, 'not-a-url')).toThrow(/not a valid URL/);
+	it('rejects keys and relay URLs that cannot be used', () => {
+		expect(() => serializeSession('nope', RELAY_URL)).toThrow(/32 bytes of hex/);
+		expect(() => serializeSession(PUBKEY, 'not-a-url')).toThrow(/not a valid URL/);
 	});
 });
 
 describe('parseSession', () => {
 	it('round trips a stored session', () => {
-		const parsed = parseSession(serializeSession(SECRET_KEY, RELAY_URL));
-		expect(parsed && bytesToHex(parsed.secretKey)).toBe(SECRET_KEY_HEX);
-		expect(parsed?.relayUrl).toBe(RELAY_URL);
+		expect(parseSession(serializeSession(PUBKEY, RELAY_URL))).toEqual({
+			signer: 'nip07',
+			pubkey: PUBKEY,
+			relayUrl: RELAY_URL
+		});
 	});
 
 	it('converts http relay URLs into their websocket form', () => {
 		const raw = JSON.stringify({
-			secretKey: SECRET_KEY_HEX,
+			signer: 'nip07',
+			pubkey: PUBKEY,
 			relayUrl: 'https://relay.example.com'
 		});
+
 		expect(parseSession(raw)?.relayUrl).toBe(RELAY_URL);
 	});
 
-	it('returns null for missing, malformed or invalid sessions', () => {
+	it('ignores malformed sessions and the old nsec format', () => {
 		expect(parseSession(null)).toBeNull();
 		expect(parseSession('')).toBeNull();
 		expect(parseSession('{')).toBeNull();
-		expect(parseSession(JSON.stringify({ relayUrl: RELAY_URL }))).toBeNull();
-		expect(parseSession(JSON.stringify({ secretKey: SECRET_KEY_HEX }))).toBeNull();
-		expect(parseSession(JSON.stringify({ secretKey: 'nope', relayUrl: RELAY_URL }))).toBeNull();
+		// Sessions of the nsec era stored a secret key and must not be trusted.
+		expect(parseSession(JSON.stringify({ secretKey: PUBKEY, relayUrl: RELAY_URL }))).toBeNull();
+		expect(
+			parseSession(JSON.stringify({ signer: 'nsec', pubkey: PUBKEY, relayUrl: RELAY_URL }))
+		).toBeNull();
+		expect(
+			parseSession(JSON.stringify({ signer: 'nip07', pubkey: 'nope', relayUrl: RELAY_URL }))
+		).toBeNull();
 		expect(
 			parseSession(
-				JSON.stringify({ secretKey: SECRET_KEY_HEX, relayUrl: 'ftp://relay.example.com' })
+				JSON.stringify({ signer: 'nip07', pubkey: PUBKEY, relayUrl: 'ftp://relay.example.com' })
 			)
-		).toBeNull();
-		// The all-zero key has no public key, so a stored session that holds it is unusable.
-		expect(
-			parseSession(JSON.stringify({ secretKey: '00'.repeat(32), relayUrl: RELAY_URL }))
 		).toBeNull();
 	});
 });

@@ -22,9 +22,9 @@ class AdminStore {
 	#loadedFor: string | null = null;
 
 	get client(): Nip86Client | null {
-		const secretKey = session.secretKey;
-		if (!secretKey) return null;
-		return createNip86Client({ relayUrl: session.relayUrl, secretKey });
+		const signer = session.signer;
+		if (!signer) return null;
+		return createNip86Client({ relayUrl: session.relayUrl, signer });
 	}
 
 	supports(method: Nip86Method | string): boolean {

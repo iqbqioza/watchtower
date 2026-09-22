@@ -9,9 +9,12 @@ import {
 	callNip86,
 	createNip86Client
 } from './nip86';
+import { LocalSigner } from './signer';
 
-// BIP-340 test vector 0 secret key.
-const SECRET_KEY = hexToBytes('0000000000000000000000000000000000000000000000000000000000000003');
+// BIP-340 test vector 0 secret key; the relay never sees it in production.
+const signer = new LocalSigner(
+	hexToBytes('0000000000000000000000000000000000000000000000000000000000000003')
+);
 const PUBKEY = 'f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9';
 const RELAY_URL = 'wss://relay.example.com/';
 const CREATED_AT = 1_700_000_000;
@@ -56,7 +59,7 @@ describe('callNip86', () => {
 	it('posts to the https endpoint of the relay with signed headers', async () => {
 		const { calls, fetch } = fakeFetch(() => jsonResponse({ result: true }));
 		const result = await callNip86(
-			{ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch, created_at: CREATED_AT },
+			{ relayUrl: RELAY_URL, signer, fetch, created_at: CREATED_AT },
 			'banpubkey',
 			[PUBKEY, 'spam']
 		);
@@ -73,7 +76,7 @@ describe('callNip86', () => {
 		const { calls, fetch } = fakeFetch(() => jsonResponse({ result: true }));
 		const params = [PUBKEY, 'spam'];
 		await callNip86(
-			{ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch, created_at: CREATED_AT },
+			{ relayUrl: RELAY_URL, signer, fetch, created_at: CREATED_AT },
 			'banpubkey',
 			params
 		);
@@ -92,10 +95,7 @@ describe('callNip86', () => {
 
 	it('accepts a relay URL written as https', async () => {
 		const { calls, fetch } = fakeFetch(() => jsonResponse({ result: true }));
-		await callNip86(
-			{ relayUrl: 'https://relay.example.com', secretKey: SECRET_KEY, fetch },
-			'supportedmethods'
-		);
+		await callNip86({ relayUrl: 'https://relay.example.com', signer, fetch }, 'supportedmethods');
 
 		expect(calls[0].url).toBe('https://relay.example.com/');
 		expect(uTagOf(calls[0])).toBe('https://relay.example.com/');
@@ -107,7 +107,7 @@ describe('callNip86', () => {
 			() => jsonResponse({ result: ['banpubkey'] })
 		);
 		const result = await callNip86(
-			{ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch, created_at: CREATED_AT },
+			{ relayUrl: RELAY_URL, signer, fetch, created_at: CREATED_AT },
 			'supportedmethods'
 		);
 
@@ -123,7 +123,7 @@ describe('callNip86', () => {
 		const { fetch } = fakeFetch(() => jsonResponse({ result: ['banpubkey', 'blockip'] }));
 		const methods = await createNip86Client({
 			relayUrl: RELAY_URL,
-			secretKey: SECRET_KEY,
+			signer,
 			fetch
 		}).supportedMethods();
 
@@ -133,7 +133,7 @@ describe('callNip86', () => {
 	it('reports a missing authorization as an auth error', async () => {
 		const { calls, fetch } = fakeFetch(() => jsonResponse({ error: 'unauthorized' }, 401));
 		await expect(
-			callNip86({ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch }, 'supportedmethods')
+			callNip86({ relayUrl: RELAY_URL, signer, fetch }, 'supportedmethods')
 		).rejects.toBeInstanceOf(Nip86AuthError);
 		expect(calls).toHaveLength(2);
 	});
@@ -141,21 +141,21 @@ describe('callNip86', () => {
 	it('turns the error field of a 200 response into an error', async () => {
 		const { fetch } = fakeFetch(() => jsonResponse({ error: 'invalid auth event payload hash' }));
 		await expect(
-			callNip86({ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch }, 'supportedmethods')
+			callNip86({ relayUrl: RELAY_URL, signer, fetch }, 'supportedmethods')
 		).rejects.toThrow(new Nip86Error('invalid auth event payload hash'));
 	});
 
 	it('rejects responses that are not JSON', async () => {
 		const { fetch } = fakeFetch(() => new Response('<html>boom</html>', { status: 500 }));
 		await expect(
-			callNip86({ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch }, 'supportedmethods')
+			callNip86({ relayUrl: RELAY_URL, signer, fetch }, 'supportedmethods')
 		).rejects.toThrow(/invalid JSON/);
 	});
 
 	it('rejects JSON responses with an error status', async () => {
 		const { fetch } = fakeFetch(() => jsonResponse({ result: null }, 500));
 		await expect(
-			callNip86({ relayUrl: RELAY_URL, secretKey: SECRET_KEY, fetch }, 'supportedmethods')
+			callNip86({ relayUrl: RELAY_URL, signer, fetch }, 'supportedmethods')
 		).rejects.toThrow(/HTTP 500/);
 	});
 });

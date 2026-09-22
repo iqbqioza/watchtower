@@ -18,7 +18,7 @@ export interface RelayClientOptions {
 	 * Signs a NIP-42 challenge. Without it the client stays anonymous and the
 	 * relay may refuse to send events.
 	 */
-	auth?: (challenge: string) => NostrEvent | null;
+	auth?: (challenge: string) => NostrEvent | null | Promise<NostrEvent | null>;
 	/** How the relay reacted to our authentication event. */
 	onAuth?: (state: 'required' | 'ok' | 'failed') => void;
 }
@@ -51,7 +51,7 @@ export class RelayClient {
 	#subscriptions = new Map<string, SubscriptionRecord>();
 	#onNotice: ((message: string) => void) | undefined;
 	#onDisconnect: ((reason: string) => void) | undefined;
-	#auth: ((challenge: string) => NostrEvent | null) | undefined;
+	#auth: ((challenge: string) => NostrEvent | null | Promise<NostrEvent | null>) | undefined;
 	#onAuth: ((state: 'required' | 'ok' | 'failed') => void) | undefined;
 	#authEventId: string | null = null;
 	#authenticated = false;
@@ -193,7 +193,7 @@ export class RelayClient {
 				this.#handleClosed(message.subscriptionId, message.message);
 				break;
 			case 'auth':
-				this.#handleAuth(message.challenge);
+				void this.#handleAuth(message.challenge);
 				break;
 			case 'ok':
 				this.#handleOk(message.eventId, message.accepted);
@@ -219,7 +219,7 @@ export class RelayClient {
 		record.handlers.onClosed?.(message);
 	}
 
-	#handleAuth(challenge: string): void {
+	async #handleAuth(challenge: string): Promise<void> {
 		this.#authRequested = true;
 		const auth = this.#auth;
 		if (!auth) {
@@ -227,11 +227,14 @@ export class RelayClient {
 			return;
 		}
 		try {
-			const event = auth(challenge);
+			const event = await auth(challenge);
 			if (!event) {
 				this.#onAuth?.('required');
 				return;
 			}
+			// Signing can take a moment (an extension may ask the user) and the
+			// connection can be gone by then.
+			if (this.#socket?.readyState !== SOCKET_OPEN) return;
 			this.#authEventId = event.id;
 			this.#send(['AUTH', event]);
 		} catch {

@@ -11,11 +11,14 @@
 	import type { RelayClient } from '$lib/nostr/relay';
 	import type { NostrEvent } from '$lib/nostr/types';
 	import { relayConnection } from '$lib/relay-connection.svelte.js';
+	import { signerActivity } from '$lib/signer-activity.svelte.js';
 
 	interface QueueItem {
 		id: string;
 		reason?: string;
 	}
+
+	const REQUEST_TIMEOUT = 10_000;
 
 	let queue = $state<QueueItem[]>([]);
 	let events = $state<Record<string, NostrEvent>>({});
@@ -45,10 +48,7 @@
 	/** Reads one event over the websocket, so the content can be reviewed. */
 	function fetchEvent(connection: RelayClient, id: string): Promise<NostrEvent> {
 		return new Promise<NostrEvent>((resolve, reject) => {
-			const timer = setTimeout(
-				() => finish(() => reject(new Error('the relay did not answer in time'))),
-				10_000
-			);
+			let timer = setTimeout(checkTimeout, REQUEST_TIMEOUT);
 			const subscription = connection.subscribe([{ ids: [id], limit: 1 }], {
 				onEvent: (event) => finish(() => resolve(event)),
 				onEose: () => {
@@ -60,6 +60,15 @@
 				onClosed: (message) =>
 					finish(() => reject(new Error(message || 'the subscription was closed')))
 			});
+
+			/** While the extension shows a prompt, keep waiting for it. */
+			function checkTimeout(): void {
+				if (signerActivity.pending) {
+					timer = setTimeout(checkTimeout, REQUEST_TIMEOUT);
+					return;
+				}
+				finish(() => reject(new Error('the relay did not answer in time')));
+			}
 
 			function finish(settle: () => void): void {
 				clearTimeout(timer);

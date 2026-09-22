@@ -265,6 +265,8 @@ const AUTH_EVENT: NostrEvent = {
 };
 
 describe('RelayClient authentication', () => {
+	const AUTH_SENT = JSON.stringify(['AUTH', AUTH_EVENT]);
+
 	async function connected(options: RelayClientOptions = {}) {
 		const { client, sockets } = createClient(options);
 		const connecting = client.connect();
@@ -273,13 +275,30 @@ describe('RelayClient authentication', () => {
 		return { client, socket: sockets[0] };
 	}
 
+	/** Waits until the client finished signing and sent the AUTH command. */
+	async function waitForAuth(socket: FakeSocket): Promise<void> {
+		await vi.waitFor(() => expect(socket.sent).toContain(AUTH_SENT));
+	}
+
 	it('answers a challenge with the signed event', async () => {
 		const auth = vi.fn(() => AUTH_EVENT);
 		const { socket } = await connected({ auth });
 
 		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+		await waitForAuth(socket);
 
 		expect(auth).toHaveBeenCalledWith('challenge-1');
+		expect(socket.lastSent).toEqual(['AUTH', AUTH_EVENT]);
+	});
+
+	it('waits for a signer that takes its time', async () => {
+		const auth = vi.fn(async () => AUTH_EVENT);
+		const { socket } = await connected({ auth });
+
+		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+		expect(socket.sent).toHaveLength(0);
+
+		await waitForAuth(socket);
 		expect(socket.lastSent).toEqual(['AUTH', AUTH_EVENT]);
 	});
 
@@ -295,6 +314,7 @@ describe('RelayClient authentication', () => {
 		expect(client.authRequested).toBe(true);
 
 		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+		await waitForAuth(socket);
 		socket.message(JSON.stringify(['OK', AUTH_EVENT.id, true, '']));
 
 		expect(onAuth).toHaveBeenCalledWith('ok');
@@ -312,6 +332,7 @@ describe('RelayClient authentication', () => {
 		const subscription = client.subscribe([FILTER], { onClosed, onEvent });
 
 		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
+		await waitForAuth(socket);
 		socket.message(JSON.stringify(['OK', AUTH_EVENT.id, false, 'invalid: bad signature']));
 
 		expect(onAuth).toHaveBeenCalledWith('failed');
@@ -328,8 +349,7 @@ describe('RelayClient authentication', () => {
 		const { socket } = await connected({ onAuth });
 
 		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
-
-		expect(onAuth).toHaveBeenCalledWith('required');
+		await vi.waitFor(() => expect(onAuth).toHaveBeenCalledWith('required'));
 		expect(socket.sent).toHaveLength(0);
 	});
 
@@ -340,7 +360,7 @@ describe('RelayClient authentication', () => {
 
 		socket.message(JSON.stringify(['AUTH', 'challenge-1']));
 
-		expect(onAuth).toHaveBeenCalledWith('required');
+		await vi.waitFor(() => expect(onAuth).toHaveBeenCalledWith('required'));
 		expect(socket.sent).toHaveLength(0);
 	});
 
@@ -352,7 +372,8 @@ describe('RelayClient authentication', () => {
 		const { socket } = await connected({ auth, onAuth });
 
 		expect(() => socket.message(JSON.stringify(['AUTH', 'challenge-1']))).not.toThrow();
-		expect(onAuth).toHaveBeenCalledWith('failed');
+		await vi.waitFor(() => expect(onAuth).toHaveBeenCalledWith('failed'));
+		expect(socket.sent).toHaveLength(0);
 	});
 
 	it('ignores OK messages for other events', async () => {

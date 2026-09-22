@@ -1,8 +1,9 @@
 import { base64 } from '@scure/base';
 import { bytesToHex, randomBytes, utf8ToBytes } from '@noble/hashes/utils.js';
-import { finalizeEvent } from './event';
+import { nowSeconds } from './event';
 import { sha256Hex } from './hash';
-import type { NostrEvent } from './types';
+import type { Signer } from './signer';
+import type { EventTemplate, NostrEvent } from './types';
 
 /** NIP-98 HTTP Auth event kind. */
 export const HTTP_AUTH_KIND = 27235;
@@ -20,8 +21,8 @@ export interface HttpAuthRequest {
 	nonce?: string;
 }
 
-/** NIP-98 event that authorizes one HTTP request. */
-export function createHttpAuthEvent(secretKey: Uint8Array, request: HttpAuthRequest): NostrEvent {
+/** The unsigned NIP-98 event for one HTTP request. */
+export function httpAuthTemplate(request: HttpAuthRequest): EventTemplate {
 	const tags = [
 		['u', request.url],
 		['method', request.method.toUpperCase()]
@@ -32,16 +33,27 @@ export function createHttpAuthEvent(secretKey: Uint8Array, request: HttpAuthRequ
 	// Relays that remember used auth events answer 401 when the same event is
 	// sent twice, and two calls in the same second would otherwise share an id.
 	tags.push(['nonce', request.nonce ?? bytesToHex(randomBytes(8))]);
-	return finalizeEvent(secretKey, {
+	return {
 		kind: HTTP_AUTH_KIND,
-		created_at: request.created_at,
+		created_at: request.created_at ?? nowSeconds(),
 		tags,
 		content: ''
-	});
+	};
+}
+
+/** NIP-98 event that authorizes one HTTP request. */
+export async function createHttpAuthEvent(
+	signer: Signer,
+	request: HttpAuthRequest
+): Promise<NostrEvent> {
+	return signer.signEvent(httpAuthTemplate(request));
 }
 
 /** `Authorization` header value: the signed event, base64 encoded after `Nostr `. */
-export function createAuthorizationHeader(secretKey: Uint8Array, request: HttpAuthRequest): string {
-	const event = createHttpAuthEvent(secretKey, request);
+export async function createAuthorizationHeader(
+	signer: Signer,
+	request: HttpAuthRequest
+): Promise<string> {
+	const event = await createHttpAuthEvent(signer, request);
 	return `Nostr ${base64.encode(utf8ToBytes(JSON.stringify(event)))}`;
 }

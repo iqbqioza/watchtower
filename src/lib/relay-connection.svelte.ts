@@ -1,4 +1,4 @@
-import { createAuthEvent } from './nostr/nip42';
+import { clientAuthTemplate } from './nostr/nip42';
 import { RelayClient, type RelayClientOptions } from './nostr/relay';
 import { session } from './session.svelte.js';
 
@@ -36,8 +36,8 @@ export class RelayConnection {
 
 	/** Connects for the current session; does nothing while already connected. */
 	start(): void {
-		const secretKey = session.secretKey;
-		if (!session.isAuthenticated || !secretKey) {
+		const signer = session.signer;
+		if (!session.isAuthenticated || !signer) {
 			this.stop();
 			return;
 		}
@@ -57,7 +57,7 @@ export class RelayConnection {
 		const relayUrl = session.relayUrl;
 		const client = this.#factory(relayUrl, {
 			// NIP-42: the relay asks before it sends anything.
-			auth: (challenge) => createAuthEvent(secretKey, relayUrl, challenge),
+			auth: (challenge) => signer.signEvent(clientAuthTemplate(relayUrl, challenge)),
 			onAuth: (state) => {
 				if (this.#client !== client) return;
 				if (state === 'ok') this.status = 'authenticated';

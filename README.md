@@ -7,8 +7,8 @@ Nostr NIP-86（Relay Management API）専用のリレー管理者パネル。
 - SvelteKit + TypeScript + TailwindCSS + Vite
 - CSR のみ（`ssr = false`、adapter-static の SPA フォールバック）
 - Nostr は `@noble/curves` / `@noble/hashes` / `@scure/base` で実装
-- ログインは nsec とリレーの `wss://` を sessionStorage に保持
-- HTTP 認証は NIP-98、WebSocket 認証は NIP-42
+- ログインは NIP-07（ブラウザ拡張）。公開鍵とリレー URL だけを sessionStorage に保持し、**秘密鍵は拡張内から出ない**
+- HTTP 認証は NIP-98、WebSocket 認証は NIP-42（どちらも拡張に署名を依頼する）
 - リレー情報は NIP-11（`Accept: application/nostr+json`）から読み込む
 - 管理画面では WebSocket を常時接続し、切断時は自動で再接続する
 - ライト / ダーク / システム追従のテーマ切替（選択は localStorage に保存）
@@ -25,7 +25,7 @@ npm run dev
 
 ## 画面
 
-- `/` ログイン（nsec とリレーの `wss://` を入力）
+- `/` ログイン（リレーの `wss://` を入力してから、ブラウザ拡張で署名）
 - `/admin` 対応している管理メソッドの確認
 - `/admin/pubkeys` pubkey の禁止・許可
 - `/admin/events` イベントの禁止・許可

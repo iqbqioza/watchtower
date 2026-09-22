@@ -61,6 +61,15 @@ export function pubkeyHexFromInput(input: string): string {
 	return pubkeyFromNpub(value);
 }
 
+/** Validates a hex public key that came from outside, such as an extension. */
+export function normalizePubkeyHex(input: string): string {
+	const value = input.trim().toLowerCase();
+	if (!isHexBytes(value, PUBKEY_BYTES)) {
+		throw new Error('public key must be 32 bytes of hex');
+	}
+	return value;
+}
+
 function decodeBech32(
 	value: string,
 	expectedPrefix: string

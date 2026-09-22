@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import Button from '$lib/components/Button.svelte';
@@ -8,14 +9,15 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import TextField from '$lib/components/TextField.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import { secretKeyFromNsec } from '$lib/nostr/keys';
+	import { browserNostrProvider } from '$lib/nostr/signer';
 	import { session } from '$lib/session.svelte.js';
 
-	let nsec = $state('');
 	let relayUrl = $state('wss://');
-	let revealKey = $state(false);
 	let error = $state<string | null>(null);
 	let busy = $state(false);
+	// Only the presence is kept in state; the provider object itself must not
+	// be wrapped in a proxy.
+	let hasExtension = $state(browserNostrProvider() !== null);
 
 	$effect(() => {
 		if (session.isAuthenticated) {
@@ -23,17 +25,24 @@
 		}
 	});
 
+	// Extensions can be injected after the first paint, so look again when the
+	// window gets focus (for example after installing one).
+	onMount(() => {
+		const check = () => (hasExtension = browserNostrProvider() !== null);
+		check();
+		window.addEventListener('focus', check);
+		return () => window.removeEventListener('focus', check);
+	});
+
 	async function signIn(event: SubmitEvent) {
 		event.preventDefault();
 		error = null;
 		busy = true;
 		try {
-			const secretKey = secretKeyFromNsec(nsec);
-			session.signIn(secretKey, relayUrl);
-			// Do not keep the nsec in component state any longer than needed.
-			nsec = '';
+			await session.signIn(relayUrl);
 			await goto(resolve('/admin'));
 		} catch (cause) {
+			hasExtension = browserNostrProvider() !== null;
 			error = cause instanceof Error ? cause.message : String(cause);
 		} finally {
 			busy = false;
@@ -57,21 +66,6 @@
 
 		<form class="mt-6 space-y-4" onsubmit={signIn}>
 			<TextField
-				label="Private key (nsec)"
-				bind:value={nsec}
-				type={revealKey ? 'text' : 'password'}
-				mono
-				placeholder="nsec1..."
-			>
-				{#snippet trailing()}
-					<Button variant="ghost" size="sm" onclick={() => (revealKey = !revealKey)}>
-						<Icon name={revealKey ? 'eyeOff' : 'eye'} />
-						<span class="sr-only">{revealKey ? 'Hide the key' : 'Show the key'}</span>
-					</Button>
-				{/snippet}
-			</TextField>
-
-			<TextField
 				label="Relay URL"
 				bind:value={relayUrl}
 				mono
@@ -83,19 +77,27 @@
 				<Notice tone="error">{error}</Notice>
 			{/if}
 
-			<Button type="submit" variant="primary" disabled={busy}>
+			<Button type="submit" variant="primary" disabled={busy || !hasExtension}>
 				{#if busy}
-					<Spinner label="Signing in" />
-					Signing in...
+					<Spinner label="Waiting for the extension" />
+					Waiting for the extension...
 				{:else}
-					Sign in
+					<Icon name="signin" />
+					Sign in with browser extension
 				{/if}
 			</Button>
 		</form>
 
+		{#if !hasExtension}
+			<Notice tone="warning">
+				No NIP-07 extension was found. Install one (for example nos2x or Alby), then focus this
+				window again.
+			</Notice>
+		{/if}
+
 		<p class="mt-6 border-t border-line pt-4 text-xs leading-relaxed text-muted">
-			The key is kept in this tab's sessionStorage and is gone when the tab closes. Use a key that
-			the relay accepts for NIP-86.
+			Your key stays in the extension and is never sent to this page. The relay must accept the
+			extension's key for NIP-86.
 		</p>
 	</main>
 </div>

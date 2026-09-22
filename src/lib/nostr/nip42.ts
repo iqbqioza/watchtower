@@ -1,27 +1,37 @@
-import { finalizeEvent } from './event';
+import { nowSeconds } from './event';
 import { normalizeRelayUrl } from './relay-url';
-import type { NostrEvent } from './types';
+import type { Signer } from './signer';
+import type { EventTemplate, NostrEvent } from './types';
 
 /** NIP-42 kind for client authentication events. */
 export const CLIENT_AUTH_KIND = 22242;
 
 /**
- * NIP-42 event that proves to a relay that the client holds the key.
- * The relay tag must be the websocket URL of the connection.
+ * The unsigned NIP-42 event for a challenge. The relay tag must be the
+ * websocket URL of the connection.
  */
-export function createAuthEvent(
-	secretKey: Uint8Array,
+export function clientAuthTemplate(
 	relayUrl: string,
 	challenge: string,
 	created_at?: number
-): NostrEvent {
-	return finalizeEvent(secretKey, {
+): EventTemplate {
+	return {
 		kind: CLIENT_AUTH_KIND,
-		created_at,
+		created_at: created_at ?? nowSeconds(),
 		tags: [
 			['relay', normalizeRelayUrl(relayUrl)],
 			['challenge', challenge]
 		],
 		content: ''
-	});
+	};
+}
+
+/** NIP-42 event that proves to a relay that the client holds the key. */
+export async function createAuthEvent(
+	signer: Signer,
+	relayUrl: string,
+	challenge: string,
+	created_at?: number
+): Promise<NostrEvent> {
+	return signer.signEvent(clientAuthTemplate(relayUrl, challenge, created_at));
 }

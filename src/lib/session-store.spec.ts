@@ -1,10 +1,14 @@
+import { finalizeEvent } from './nostr/event';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
+import type { Nip07Provider } from './nostr/signer';
+import type { EventTemplate } from './nostr/types';
 import { SESSION_STORAGE_KEY, type StorageLike } from './session';
 import { SessionStore } from './session.svelte.js';
+import { signerActivity } from './signer-activity.svelte.js';
 
-const SECRET_KEY_HEX = '0000000000000000000000000000000000000000000000000000000000000003';
-const SECRET_KEY = hexToBytes(SECRET_KEY_HEX);
+// BIP-340 test vector 0 secret key.
+const SECRET_KEY = hexToBytes('0000000000000000000000000000000000000000000000000000000000000003');
 const PUBKEY = 'f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9';
 const RELAY_URL = 'wss://relay.example.com/';
 
@@ -29,44 +33,61 @@ class MemoryStorage implements StorageLike {
 	}
 }
 
+function extension(overrides: Partial<Nip07Provider> = {}): Nip07Provider {
+	return {
+		getPublicKey: async () => PUBKEY,
+		signEvent: async (template: EventTemplate) => finalizeEvent(SECRET_KEY, template),
+		...overrides
+	};
+}
+
 describe('SessionStore', () => {
 	it('is anonymous until someone signs in', () => {
-		const store = new SessionStore(new MemoryStorage());
+		const store = new SessionStore(new MemoryStorage(), () => extension());
 		expect(store.isAuthenticated).toBe(false);
 		expect(store.pubkey).toBeNull();
 		expect(store.npub).toBeNull();
+		expect(store.signer).toBeNull();
 	});
 
-	it('keeps the key in memory and in session storage after sign in', () => {
+	it('keeps the account from the extension, never the key', async () => {
 		const storage = new MemoryStorage();
-		const store = new SessionStore(storage);
+		const store = new SessionStore(storage, () => extension());
 
-		store.signIn(SECRET_KEY, RELAY_URL);
+		await store.signIn(RELAY_URL);
 
 		expect(store.isAuthenticated).toBe(true);
 		expect(store.pubkey).toBe(PUBKEY);
 		expect(store.npub).toMatch(/^npub1/);
-		expect(JSON.parse(storage.stored ?? '')).toEqual({
-			secretKey: SECRET_KEY_HEX,
-			relayUrl: RELAY_URL
-		});
+		expect(storage.stored).toContain(PUBKEY);
+		expect(storage.stored).not.toContain('secret');
 	});
 
-	it('normalizes the relay URL before storing it', () => {
+	it('normalizes the relay URL before storing it', async () => {
 		const storage = new MemoryStorage();
-		const store = new SessionStore(storage);
+		const store = new SessionStore(storage, () => extension());
 
-		store.signIn(SECRET_KEY, 'https://relay.example.com');
+		await store.signIn('https://relay.example.com');
 
 		expect(store.relayUrl).toBe(RELAY_URL);
 		expect(storage.stored).toContain(RELAY_URL);
 	});
 
-	it('restores a stored session exactly once', () => {
-		const storage = new MemoryStorage();
-		new SessionStore(storage).signIn(SECRET_KEY, RELAY_URL);
+	it('gives a signer bound to the stored account', async () => {
+		const store = new SessionStore(new MemoryStorage(), () => extension());
+		await store.signIn(RELAY_URL);
 
-		const store = new SessionStore(storage);
+		const signer = store.signer;
+
+		expect(signer).not.toBeNull();
+		expect(await signer?.getPublicKey()).toBe(PUBKEY);
+	});
+
+	it('restores a stored session exactly once', async () => {
+		const storage = new MemoryStorage();
+		await new SessionStore(storage, () => extension()).signIn(RELAY_URL);
+
+		const store = new SessionStore(storage, () => extension());
 		store.restore();
 		expect(store.pubkey).toBe(PUBKEY);
 		expect(store.relayUrl).toBe(RELAY_URL);
@@ -79,41 +100,82 @@ describe('SessionStore', () => {
 
 	it('ignores corrupted storage', () => {
 		const storage = new MemoryStorage();
-		storage.setItem(SESSION_STORAGE_KEY, '{"secretKey":"nope"}');
+		storage.setItem(SESSION_STORAGE_KEY, '{"signer":"nip07","pubkey":"nope"}');
 
-		const store = new SessionStore(storage);
+		const store = new SessionStore(storage, () => extension());
 		store.restore();
 		expect(store.isAuthenticated).toBe(false);
 	});
 
-	it('clears memory and storage on sign out', () => {
+	it('clears memory and storage on sign out', async () => {
 		const storage = new MemoryStorage();
-		const store = new SessionStore(storage);
-		store.signIn(SECRET_KEY, RELAY_URL);
+		const store = new SessionStore(storage, () => extension());
+		await store.signIn(RELAY_URL);
 
 		store.signOut();
 
 		expect(store.isAuthenticated).toBe(false);
-		expect(store.secretKey).toBeNull();
+		expect(store.pubkey).toBeNull();
 		expect(store.relayUrl).toBe('');
 		expect(storage.stored).toBeNull();
 	});
 
-	it('refuses to sign in with an unusable key or relay URL', () => {
-		const storage = new MemoryStorage();
-		const store = new SessionStore(storage);
+	it('refuses to sign in without an extension or with a broken key', async () => {
+		const missing = new SessionStore(new MemoryStorage(), () => null);
+		await expect(missing.signIn(RELAY_URL)).rejects.toThrow(/no NIP-07/);
+		expect(missing.isAuthenticated).toBe(false);
 
-		expect(() => store.signIn(new Uint8Array(32), RELAY_URL)).toThrow(/out of range/);
-		expect(() => store.signIn(SECRET_KEY, 'http://')).toThrow(/not a valid URL/);
-		expect(store.isAuthenticated).toBe(false);
+		const storage = new MemoryStorage();
+		const broken = new SessionStore(storage, () =>
+			extension({ getPublicKey: async () => 'not-a-key' })
+		);
+		await expect(broken.signIn(RELAY_URL)).rejects.toThrow(/valid bech32|32 bytes of hex/);
 		expect(storage.stored).toBeNull();
+
+		const badRelay = new SessionStore(new MemoryStorage(), () => extension());
+		await expect(badRelay.signIn('http://')).rejects.toThrow(/not a valid URL/);
+		expect(badRelay.isAuthenticated).toBe(false);
 	});
 
-	it('works without storage, for example in private mode', () => {
-		const store = new SessionStore(null);
-		store.signIn(SECRET_KEY, RELAY_URL);
-		expect(store.isAuthenticated).toBe(true);
+	it('works without storage, for example in private mode', async () => {
+		const store = new SessionStore(null, () => extension());
+		await store.signIn(RELAY_URL);
+		expect(store.signer).not.toBeNull();
+
 		store.signOut();
 		expect(store.isAuthenticated).toBe(false);
+	});
+
+	it('reports pending extension prompts through the shared activity state', async () => {
+		let release: () => void = () => {};
+		const gate = new Promise<void>((resolve) => (release = resolve));
+		const slowProvider = extension({
+			signEvent: async (template: EventTemplate) => {
+				await gate;
+				return finalizeEvent(SECRET_KEY, template);
+			}
+		});
+		const store = new SessionStore(new MemoryStorage(), () => slowProvider);
+		await store.signIn(RELAY_URL);
+		expect(signerActivity.pending).toBe(false);
+
+		const signing = store.signer?.signEvent({ kind: 1 });
+		expect(signerActivity.pending).toBe(true);
+
+		release();
+		await signing;
+		expect(signerActivity.pending).toBe(false);
+	});
+
+	it('has no signer when the extension went away', async () => {
+		let provider: Nip07Provider | null = extension();
+		const store = new SessionStore(new MemoryStorage(), () => provider);
+		await store.signIn(RELAY_URL);
+		expect(store.signer).not.toBeNull();
+
+		// The extension was uninstalled or disabled in another profile.
+		provider = null;
+		expect(store.isAuthenticated).toBe(true);
+		expect(store.signer).toBeNull();
 	});
 });

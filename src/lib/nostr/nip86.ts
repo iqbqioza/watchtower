@@ -1,5 +1,6 @@
 import { createAuthorizationHeader } from './nip98';
 import { normalizeRelayUrl, relayHttpUrl } from './relay-url';
+import type { Signer } from './signer';
 
 /** Content type that relays expect for management calls (NIP-86). */
 export const NIP86_CONTENT_TYPE = 'application/nostr+json+rpc';
@@ -50,7 +51,7 @@ export class Nip86AuthError extends Nip86Error {}
 export interface Nip86ClientOptions {
 	/** Relay URL as the user typed it; ws(s) or http(s). */
 	relayUrl: string;
-	secretKey: Uint8Array;
+	signer: Signer;
 	/** Replaceable for tests. */
 	fetch?: typeof globalThis.fetch;
 	/** Fixed timestamp for tests; production uses the current time. */
@@ -83,7 +84,7 @@ export async function callNip86<T = unknown>(
 			method: 'POST',
 			headers: {
 				'Content-Type': NIP86_CONTENT_TYPE,
-				Authorization: createAuthorizationHeader(options.secretKey, {
+				Authorization: await createAuthorizationHeader(options.signer, {
 					url: uTag,
 					method: 'POST',
 					body,

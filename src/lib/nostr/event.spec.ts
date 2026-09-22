@@ -2,7 +2,14 @@ import { createHash } from 'node:crypto';
 import { schnorr } from '@noble/curves/secp256k1.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
-import { finalizeEvent, getEventId, serializeEvent, signSchnorr, verifyEvent } from './event';
+import {
+	finalizeEvent,
+	getEventId,
+	isNostrEvent,
+	serializeEvent,
+	signSchnorr,
+	verifyEvent
+} from './event';
 
 // BIP-340 test vector 0: secret key 3, message 32 zero bytes, zero auxiliary randomness.
 const SECRET_KEY = '0000000000000000000000000000000000000000000000000000000000000003';
@@ -109,5 +116,20 @@ describe('verifyEvent', () => {
 		const event = finalizeEvent(secretKey, { kind: 1, content: 'hello' });
 		expect(verifyEvent({ ...event, sig: 'not-hex' })).toBe(false);
 		expect(bytesToHex(hexToBytes(event.id))).toBe(event.id);
+	});
+});
+
+describe('isNostrEvent', () => {
+	it('accepts a signed event', () => {
+		expect(isNostrEvent(finalizeEvent(secretKey, { kind: 1 }))).toBe(true);
+	});
+
+	it('rejects values that are not events', () => {
+		const event = finalizeEvent(secretKey, { kind: 1 });
+		expect(isNostrEvent(null)).toBe(false);
+		expect(isNostrEvent('event')).toBe(false);
+		expect(isNostrEvent({})).toBe(false);
+		expect(isNostrEvent({ ...event, kind: '1' })).toBe(false);
+		expect(isNostrEvent({ ...event, tags: 'none' })).toBe(false);
 	});
 });

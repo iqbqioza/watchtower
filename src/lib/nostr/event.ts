@@ -51,3 +51,18 @@ export function verifyEvent(event: NostrEvent): boolean {
 		return false;
 	}
 }
+
+/** Shape check for events that arrive from outside, such as relay messages. */
+export function isNostrEvent(value: unknown): value is NostrEvent {
+	if (typeof value !== 'object' || value === null) return false;
+	const event = value as Record<string, unknown>;
+	return (
+		typeof event.id === 'string' &&
+		typeof event.pubkey === 'string' &&
+		typeof event.sig === 'string' &&
+		typeof event.created_at === 'number' &&
+		typeof event.kind === 'number' &&
+		typeof event.content === 'string' &&
+		Array.isArray(event.tags)
+	);
+}

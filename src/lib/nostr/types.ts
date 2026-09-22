@@ -20,3 +20,13 @@ export interface EventTemplate {
 	tags?: string[][];
 	content?: string;
 }
+
+/** NIP-01 subscription filter. */
+export interface NostrFilter {
+	ids?: string[];
+	authors?: string[];
+	kinds?: number[];
+	since?: number;
+	until?: number;
+	limit?: number;
+}

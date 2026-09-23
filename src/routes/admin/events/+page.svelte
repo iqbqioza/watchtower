@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
+	import { confirmDialog } from '$lib/components/confirm.svelte.js';
 	import Notice from '$lib/components/Notice.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
@@ -61,7 +62,16 @@
 			error = 'Enter the 32-byte hex id of an event.';
 			return;
 		}
-		if (action === 'ban' && !confirm(`Ban event ${id}?`)) return;
+		if (
+			action === 'ban' &&
+			!(await confirmDialog.ask({
+				title: 'Ban event',
+				message: `${id} will be hidden from this relay.`,
+				confirmLabel: 'Ban event'
+			}))
+		) {
+			return;
+		}
 
 		busy = id;
 		try {
@@ -131,7 +141,7 @@
 			>
 				<TextField label="Event id (hex)" bind:value={banId} mono placeholder="64 hex characters" />
 				<TextField label="Reason (optional)" bind:value={banReason} placeholder="illegal content" />
-				<div class="sm:col-span-2">
+				<div class="flex justify-end sm:col-span-2">
 					<Button type="submit" variant="danger" disabled={!banId.trim() || busy !== null}>
 						Ban event
 					</Button>
@@ -158,7 +168,7 @@
 					placeholder="64 hex characters"
 				/>
 				<TextField label="Reason (optional)" bind:value={allowReason} placeholder="reviewed" />
-				<div class="sm:col-span-2">
+				<div class="flex justify-end sm:col-span-2">
 					<Button type="submit" disabled={!allowId.trim() || busy !== null}>Allow event</Button>
 				</div>
 			</form>

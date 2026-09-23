@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { admin } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
+	import ConfirmDialog from '$lib/components/ConfirmDialog.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Footer from '$lib/components/Footer.svelte';
 	import Icon from '$lib/components/Icon.svelte';
@@ -230,5 +231,7 @@
 				</span>
 			</div>
 		{/if}
+
+		<ConfirmDialog />
 	</div>
 {/if}

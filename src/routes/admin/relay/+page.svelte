@@ -218,7 +218,7 @@
 			<Notice>This relay does not support changerelayname.</Notice>
 		{:else if admin.ready}
 			<form
-				class="flex flex-wrap items-end gap-3"
+				class="flex flex-wrap items-end justify-end gap-3"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submit('changerelayname', name, 'name', () => (name = ''));
@@ -235,7 +235,7 @@
 			<Notice>This relay does not support changerelaydescription.</Notice>
 		{:else if admin.ready}
 			<form
-				class="flex flex-wrap items-end gap-3 border-t border-line pt-4"
+				class="flex flex-wrap items-end justify-end gap-3 border-t border-line pt-4"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submit(
@@ -263,7 +263,7 @@
 			<Notice>This relay does not support changerelayicon.</Notice>
 		{:else if admin.ready}
 			<form
-				class="flex flex-wrap items-end gap-3 border-t border-line pt-4"
+				class="flex flex-wrap items-end justify-end gap-3 border-t border-line pt-4"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submit('changerelayicon', icon, 'icon', () => (icon = ''));

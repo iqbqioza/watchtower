@@ -61,10 +61,10 @@
 
 	<div class="flex flex-1 items-center justify-center py-10">
 		<main class="w-full max-w-md rounded-xl border border-line bg-panel p-6 panel-shadow">
-			<div class="flex items-center gap-2.5">
-				<Logo />
+			<div class="flex items-center gap-3">
+				<Logo size="xl" />
 				<div>
-					<h1 class="text-base font-semibold">WatchTower</h1>
+					<h1 class="text-lg font-semibold">WatchTower</h1>
 					<p class="text-xs text-muted">NIP-86 relay admin panel</p>
 				</div>
 			</div>
@@ -82,15 +82,17 @@
 					<Notice tone="error">{error}</Notice>
 				{/if}
 
-				<Button type="submit" variant="primary" disabled={busy || !hasExtension}>
-					{#if busy}
-						<Spinner label="Waiting for the extension" />
-						Waiting for the extension...
-					{:else}
-						<Icon name="signin" />
-						Sign in with browser extension
-					{/if}
-				</Button>
+				<div class="flex justify-end">
+					<Button type="submit" variant="primary" disabled={busy || !hasExtension}>
+						{#if busy}
+							<Spinner label="Waiting for the extension" />
+							Waiting for the extension...
+						{:else}
+							<Icon name="signin" />
+							Sign in with browser extension
+						{/if}
+					</Button>
+				</div>
 			</form>
 
 			{#if !hasExtension}

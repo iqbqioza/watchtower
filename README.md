@@ -34,7 +34,7 @@ npm run dev
 - `/admin/ips` IP アドレスのブロック
 - `/admin/kinds` 許可する kind
 - `/admin/relay` リレー情報（NIP-11 での読み込みと、名前・説明・アイコンの変更）
-- `/admin/roles` ロール操作（作成・更新・削除・割当・解除）
+- `/admin/roles` ロールの一覧（NIP-43 イベント）と、作成・更新・削除・割当・解除
 
 ## 制限
 

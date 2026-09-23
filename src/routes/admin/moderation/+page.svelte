@@ -3,6 +3,7 @@
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Badge from '$lib/components/Badge.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import { confirmDialog } from '$lib/components/confirm.svelte.js';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Notice from '$lib/components/Notice.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
@@ -113,7 +114,16 @@
 	async function decide(id: string, action: 'allow' | 'ban'): Promise<void> {
 		error = null;
 		success = null;
-		if (action === 'ban' && !confirm(`Ban event ${id}?`)) return;
+		if (
+			action === 'ban' &&
+			!(await confirmDialog.ask({
+				title: 'Ban event',
+				message: `${id} will be hidden from this relay.`,
+				confirmLabel: 'Ban event'
+			}))
+		) {
+			return;
+		}
 
 		busy = id;
 		try {
@@ -216,7 +226,7 @@
 							</details>
 						{/if}
 
-						<div class="mt-3 flex flex-wrap gap-2">
+						<div class="mt-3 flex flex-wrap justify-end gap-2">
 							<Button
 								size="sm"
 								onclick={() => void loadEvent(item.id)}

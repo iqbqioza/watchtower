@@ -120,7 +120,7 @@
 			<Notice>This relay does not support allowkind.</Notice>
 		{:else if admin.ready}
 			<form
-				class="flex flex-wrap items-end gap-3 border-t border-line pt-4"
+				class="flex flex-wrap items-end justify-end gap-3 border-t border-line pt-4"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void allow();

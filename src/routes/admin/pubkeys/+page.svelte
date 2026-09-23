@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
+	import { confirmDialog } from '$lib/components/confirm.svelte.js';
 	import Notice from '$lib/components/Notice.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
@@ -96,7 +97,15 @@
 			error = describeError(cause);
 			return;
 		}
-		if (!confirm(`Ban ${pubkey} on this relay?`)) return;
+		if (
+			!(await confirmDialog.ask({
+				title: 'Ban pubkey',
+				message: `${pubkey} will no longer be able to publish to this relay.`,
+				confirmLabel: 'Ban pubkey'
+			}))
+		) {
+			return;
+		}
 		await change(
 			() => admin.call('banpubkey', params(pubkey, banReason)),
 			'Pubkey banned.',
@@ -177,7 +186,7 @@
 			>
 				<TextField label="Pubkey (hex or npub)" bind:value={banKey} mono placeholder="npub1..." />
 				<TextField label="Reason (optional)" bind:value={banReason} placeholder="spam" />
-				<div class="sm:col-span-2">
+				<div class="flex justify-end sm:col-span-2">
 					<Button type="submit" variant="danger" disabled={!banKey.trim() || busy !== null}>
 						Ban pubkey
 					</Button>
@@ -224,7 +233,7 @@
 			>
 				<TextField label="Pubkey (hex or npub)" bind:value={allowKey} mono placeholder="npub1..." />
 				<TextField label="Reason (optional)" bind:value={allowReason} placeholder="trusted" />
-				<div class="sm:col-span-2">
+				<div class="flex justify-end sm:col-span-2">
 					<Button type="submit" disabled={!allowKey.trim() || busy !== null}>Allow pubkey</Button>
 				</div>
 			</form>

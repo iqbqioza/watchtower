@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { admin, describeError } from '$lib/admin.svelte.js';
 	import Button from '$lib/components/Button.svelte';
+	import { confirmDialog } from '$lib/components/confirm.svelte.js';
 	import Notice from '$lib/components/Notice.svelte';
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Panel from '$lib/components/Panel.svelte';
@@ -79,7 +80,15 @@
 			error = 'Enter an IPv4 or IPv6 address.';
 			return;
 		}
-		if (!confirm(`Block ${ip} from connecting?`)) return;
+		if (
+			!(await confirmDialog.ask({
+				title: 'Block IP address',
+				message: `Clients from ${ip} will no longer be able to connect.`,
+				confirmLabel: 'Block IP'
+			}))
+		) {
+			return;
+		}
 		const reason = ipReason.trim();
 		await change(() => admin.call('blockip', reason ? [ip, reason] : [ip]), 'IP blocked.', ip);
 		ipInput = '';
@@ -132,7 +141,7 @@
 			>
 				<TextField label="IP address" bind:value={ipInput} mono placeholder="203.0.113.7" />
 				<TextField label="Reason (optional)" bind:value={ipReason} placeholder="abuse" />
-				<div class="sm:col-span-2">
+				<div class="flex justify-end sm:col-span-2">
 					<Button type="submit" variant="danger" disabled={!ipInput.trim() || busy !== null}>
 						Block IP
 					</Button>

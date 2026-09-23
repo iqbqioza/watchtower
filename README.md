@@ -1,4 +1,4 @@
-# Tower
+# WatchTower
 
 Nostr NIP-86（Relay Management API）専用のリレー管理者パネル。
 

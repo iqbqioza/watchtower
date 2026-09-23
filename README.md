@@ -107,9 +107,9 @@ npm run format  # rewrite files with Prettier
 ## Deploying
 
 The build output in `build/` is a static single-page app. It is deployed to Cloudflare Workers with
-static assets (`wrangler.jsonc`), where `not_found_handling: single-page-application` makes deep links
-such as `/admin/pubkeys` work. `static/_redirects` does the same on hosts that read it (Cloudflare Pages
-included).
+static assets (`wrangler.jsonc`): `assets.directory` points at `build/` and
+`not_found_handling: single-page-application` makes deep links such as `/admin/pubkeys` work, so no
+`_redirects` rule is needed.
 
 ```sh
 npm run deploy   # wrangler types --check && vite build, then wrangler deploy

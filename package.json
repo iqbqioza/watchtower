@@ -11,7 +11,8 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "wrangler types --check && vite build",
+		"deploy": "npm run build && wrangler deploy",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -41,7 +42,8 @@
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.60.1",
 		"vite": "^8.0.16",
-		"vitest": "^4.1.8"
+		"vitest": "^4.1.8",
+		"wrangler": "^4.136.3"
 	},
 	"dependencies": {
 		"@noble/curves": "^2.4.0",

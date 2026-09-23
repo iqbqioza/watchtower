@@ -1,51 +1,114 @@
 # WatchTower
 
-Nostr NIP-86（Relay Management API）専用のリレー管理者パネル。
+<img src="static/icon-180.png" alt="WatchTower icon" width="120" height="120" />
 
-## 技術スタック
+An admin panel for relays that speak **NIP-86**, the relay management API. Sign in with a
+[NIP-07](https://github.com/nostr-protocol/nips/blob/master/07.md) browser extension, point it at a relay
+and manage it from one place: bans and allow lists, event moderation, blocked IPs, allowed kinds, roles
+and relay metadata.
 
-- SvelteKit + TypeScript + TailwindCSS + Vite
-- CSR のみ（`ssr = false`、adapter-static の SPA フォールバック）
-- Nostr は `@noble/curves` / `@noble/hashes` / `@scure/base` で実装
-- ログインは NIP-07（ブラウザ拡張）。公開鍵とリレー URL だけを sessionStorage に保持し、**秘密鍵は拡張内から出ない**
-- HTTP 認証は NIP-98、WebSocket 認証は NIP-42（どちらも拡張に署名を依頼する）
-- リレー情報は NIP-11（`Accept: application/nostr+json`）から読み込む
-- 管理画面では WebSocket を常時接続し、切断時は自動で再接続する
-- ライト / ダークのテーマ切替（初回のみシステム設定に追従、選択は localStorage に保存）
-- アイコンは Heroicons（MIT、`LICENSES/heroicons.txt`）
-- 画面の色は `src/routes/layout.css` のセマンティックトークン（`bg` / `panel` / `line` / `ink` / `muted`）で統一
+## Features
 
-## 開発
+- **NIP-07 sign-in** — the private key never leaves the browser extension. WatchTower only keeps the
+  public key and the relay URL for the tab, in `sessionStorage`.
+- **NIP-86 management** — ban/unban and allow/unallow pubkeys, ban/allow events, block and unblock IPs,
+  allow and disallow kinds, change the relay name, description and icon, create, edit, delete and assign
+  roles.
+- **NIP-98 authentication** — every management call is an HTTP request signed with a fresh `kind: 27235`
+  event, including a `payload` hash and a nonce, so relays that reject replays work too.
+- **Moderation queue** — events the relay is holding back are listed, and the event itself is read over
+  the websocket so the decision is made with the content in front of you.
+- **One websocket connection** — kept open while the panel is in use, authenticated with NIP-42 and
+  reconnected automatically when it drops.
+- **NIP-11 and NIP-43 aware** — the relay screen shows the relay's own information document, and the
+  roles screen lists the roles the relay publishes as NIP-43 events.
+- **Confirmation before destructive actions** — banning, blocking, deleting a role and unassigning a
+  role all go through a modal dialog.
+- **Light and dark theme**, monochrome layout, keyboard-friendly controls.
+
+## Requirements
+
+- Node.js 24 or newer (the bundled devcontainer is ready to use)
+- A NIP-07 browser extension, such as nos2x or Alby
+- A relay with the NIP-86 management API enabled, and the extension's key allowed to manage it
+
+## Getting started
 
 ```sh
 npm install
 npm run dev
 ```
 
-開発サーバは `0.0.0.0:53000` で待ち受ける。
+The development server listens on `0.0.0.0:53000`. Open <http://localhost:53000>, enter the relay URL
+(`wss://relay.example.com`), then approve the sign-in in the extension.
 
-## 画面
-
-- `/` ログイン（リレーの `wss://` を入力してから、ブラウザ拡張で署名）
-- `/admin` 対応している管理メソッドの確認
-- `/admin/pubkeys` pubkey の禁止・許可
-- `/admin/events` イベントの禁止・許可
-- `/admin/moderation` モデレーション待ち（WebSocket で中身を取得して確認）
-- `/admin/ips` IP アドレスのブロック
-- `/admin/kinds` 許可する kind
-- `/admin/relay` リレー情報（NIP-11 での読み込みと、名前・説明・アイコンの変更）
-- `/admin/roles` ロールの一覧（NIP-43 イベント）と、作成・更新・削除・割当・解除
-
-## 制限
-
-- リレーが対応していないメソッドの画面は「未対応」と表示する
-- ロールの一覧取得メソッドが NIP-86 に無いため、ロール画面は書き込みのみ
-
-## チェック
+Production build:
 
 ```sh
-npm run lint
-npm run check
-npm test
-npm run build
+npm run build   # static SPA written to build/
+npm run preview # serve the build on 0.0.0.0:53000
 ```
+
+## Screens
+
+| Route               | Purpose                                                     |
+| ------------------- | ----------------------------------------------------------- |
+| `/`                 | Sign in with a relay URL and the browser extension          |
+| `/admin`            | Connection status and the methods the relay reports         |
+| `/admin/moderation` | Events waiting for a decision, with their content           |
+| `/admin/pubkeys`    | Banned and allowed pubkeys                                  |
+| `/admin/events`     | Banned events, and allowing a single event                  |
+| `/admin/ips`        | Blocked IP addresses                                        |
+| `/admin/kinds`      | Allowed event kinds                                         |
+| `/admin/roles`      | Roles read from NIP-43 events, plus assignments             |
+| `/admin/relay`      | NIP-11 information and the relay name, description and icon |
+
+## How it talks to relays
+
+| NIP                                                                | Used for                                              |
+| ------------------------------------------------------------------ | ----------------------------------------------------- |
+| [NIP-01](https://github.com/nostr-protocol/nips/blob/master/01.md) | Event ids, signatures and websocket messages          |
+| [NIP-07](https://github.com/nostr-protocol/nips/blob/master/07.md) | Signing through the browser extension                 |
+| [NIP-11](https://github.com/nostr-protocol/nips/blob/master/11.md) | Relay information document                            |
+| [NIP-42](https://github.com/nostr-protocol/nips/blob/master/42.md) | Authenticating the websocket (relays that gate reads) |
+| [NIP-43](https://github.com/nostr-protocol/nips/blob/master/43.md) | Reading the relay's roles and memberships             |
+| [NIP-86](https://github.com/nostr-protocol/nips/blob/master/86.md) | Management API over HTTP                              |
+| [NIP-98](https://github.com/nostr-protocol/nips/blob/master/98.md) | HTTP authentication for management calls              |
+
+## Tech stack
+
+- SvelteKit + TypeScript + Tailwind CSS v4 + Vite
+- Client-side rendering only (`ssr = false`), static adapter with an SPA fallback
+- Nostr primitives come from `@noble/curves`, `@noble/hashes` and `@scure/base`; nothing else is needed
+  at runtime
+- Icons from [Heroicons](https://heroicons.com) (MIT, see `LICENSES/heroicons.txt`)
+
+## Development
+
+```sh
+npm run lint    # Prettier and ESLint
+npm run check   # svelte-check
+npm test        # Vitest
+npm run build   # production build
+npm run format  # rewrite files with Prettier
+```
+
+## Limitations
+
+- The relay has to implement NIP-86. If it does not, WatchTower says so instead of showing empty screens.
+- NIP-86 has no method to list roles, so they are read from the relay's NIP-43 events (`kind: 33534`
+  definitions and `kind: 13534` memberships). Relays that do not publish them keep the write-only role
+  form, where the role id is typed by hand.
+- NIP-86 cannot lift an event ban; allow the event instead.
+- NIP-46 (remote signers) is not supported.
+- A relay that gates reads needs the signed-in key to be allowed to read before the moderation and role
+  screens can show anything.
+
+## Sponsoring
+
+If WatchTower is useful to you, you can support its development through
+[GitHub Sponsors](https://github.com/sponsors/iqbqioza).
+
+## License
+
+MIT © 2026 [iqbqioza](https://github.com/iqbqioza)

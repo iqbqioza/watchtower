@@ -1,7 +1,13 @@
 {
 	"name": "watchtower",
+	"description": "Admin panel for Nostr relays that speak NIP-86",
 	"private": true,
 	"version": "0.0.1",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/iqbqioza/watchtower.git"
+	},
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",

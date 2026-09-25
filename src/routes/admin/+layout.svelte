@@ -28,6 +28,8 @@
 		{ href: resolve('/admin/ips'), label: 'IPs' },
 		{ href: resolve('/admin/kinds'), label: 'Kinds' },
 		{ href: resolve('/admin/roles'), label: 'Roles' },
+		{ href: resolve('/admin/admins'), label: 'Admins' },
+		{ href: resolve('/admin/invites'), label: 'Invites' },
 		{ href: resolve('/admin/relay'), label: 'Relay' }
 	];
 

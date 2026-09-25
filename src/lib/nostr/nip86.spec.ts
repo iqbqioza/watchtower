@@ -8,7 +8,9 @@ import {
 	Nip86Error,
 	Nip86UnsupportedError,
 	callNip86,
-	createNip86Client
+	createNip86Client,
+	isGrantableMethod,
+	validateClaim
 } from './nip86';
 import { LocalSigner } from './signer';
 
@@ -218,5 +220,42 @@ describe('callNip86', () => {
 		await expect(
 			callNip86({ relayUrl: RELAY_URL, signer, fetch }, 'supportedmethods')
 		).rejects.toBeInstanceOf(Nip86UnsupportedError);
+	});
+});
+
+describe('grantable methods', () => {
+	it('accepts the moderation verbs and read-only lists', () => {
+		expect(isGrantableMethod('banpubkey')).toBe(true);
+		expect(isGrantableMethod('banevent')).toBe(true);
+		expect(isGrantableMethod('listallowedevents')).toBe(true);
+	});
+
+	it('refuses anything that could escalate permissions', () => {
+		expect(isGrantableMethod('supportedmethods')).toBe(false);
+		expect(isGrantableMethod('assignmethod')).toBe(false);
+		expect(isGrantableMethod('createrole')).toBe(false);
+		expect(isGrantableMethod('changerelayname')).toBe(false);
+		expect(isGrantableMethod('listclaims')).toBe(false);
+	});
+});
+
+describe('validateClaim', () => {
+	it('accepts a plain invite code untouched', () => {
+		expect(validateClaim('invite-for-alice')).toBe('invite-for-alice');
+	});
+
+	it('refuses empty, padded, too long and control characters', () => {
+		expect(() => validateClaim('')).toThrow(/must not be empty/);
+		expect(() => validateClaim('   ')).toThrow(/must not be empty/);
+		expect(() => validateClaim(' padded')).toThrow(/whitespace/);
+		expect(() => validateClaim('padded ')).toThrow(/whitespace/);
+		expect(() => validateClaim('a'.repeat(129))).toThrow(/at most 128/);
+		expect(() => validateClaim('bad\u0007claim')).toThrow(/control characters/);
+		expect(() => validateClaim('bad\u009bclaim')).toThrow(/control characters/);
+	});
+
+	it('counts characters, not bytes', () => {
+		expect(validateClaim('あ'.repeat(128))).toHaveLength(128);
+		expect(() => validateClaim('あ'.repeat(129))).toThrow(/at most 128/);
 	});
 });

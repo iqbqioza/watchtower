@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { initialIndex, moveIndex, type SelectOption } from './select';
+import {
+	initialIndex,
+	moveIndex,
+	summarizeSelection,
+	toggleValue,
+	type SelectOption
+} from './select';
 
 const OPTIONS: SelectOption[] = [
 	{ value: 'moderator', label: 'Moderator' },
@@ -40,5 +46,22 @@ describe('moveIndex', () => {
 
 	it('has nothing to move without options', () => {
 		expect(moveIndex(0, 1, 0)).toBe(-1);
+	});
+});
+
+describe('toggleValue', () => {
+	it('adds an unselected value at the end and removes a selected one', () => {
+		expect(toggleValue([], 'banevent')).toEqual(['banevent']);
+		expect(toggleValue(['banevent'], 'blockip')).toEqual(['banevent', 'blockip']);
+		expect(toggleValue(['banevent', 'blockip'], 'banevent')).toEqual(['blockip']);
+	});
+});
+
+describe('summarizeSelection', () => {
+	it('shows the placeholder, the single choice or a count', () => {
+		expect(summarizeSelection(OPTIONS, [], 'Choose...')).toBe('Choose...');
+		expect(summarizeSelection(OPTIONS, ['curator'], 'Choose...')).toBe('Curator');
+		expect(summarizeSelection(OPTIONS, ['curator', 'admin'], 'Choose...')).toBe('2 selected');
+		expect(summarizeSelection(OPTIONS, ['gone'], 'Choose...')).toBe('gone');
 	});
 });

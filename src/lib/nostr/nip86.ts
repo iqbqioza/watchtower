@@ -31,7 +31,81 @@ export type Nip86Method =
 	| 'listallowedkinds'
 	| 'blockip'
 	| 'unblockip'
-	| 'listblockedips';
+	| 'listblockedips'
+	// Relays that follow NIP-86 PR #2439 ("assign/unassign method") and the
+	// companion additions report these as well.
+	| 'assignmethod'
+	| 'unassignmethod'
+	| 'listmethodassignees'
+	| 'unbanevent'
+	| 'unallowevent'
+	| 'listallowedevents'
+	| 'listdisallowedkinds'
+	| 'listclaims'
+	| 'createclaim'
+	| 'deleteclaim';
+
+/**
+ * Methods an ordinary pubkey can be granted with `assignmethod`: the
+ * moderation verbs and the read-only lists. Permission management, roles and
+ * invite claims stay with the relay admins.
+ */
+export const GRANTABLE_METHODS: Nip86Method[] = [
+	'banpubkey',
+	'unbanpubkey',
+	'listbannedpubkeys',
+	'allowpubkey',
+	'unallowpubkey',
+	'listallowedpubkeys',
+	'allowkind',
+	'disallowkind',
+	'listallowedkinds',
+	'listdisallowedkinds',
+	'blockip',
+	'unblockip',
+	'listblockedips',
+	'banevent',
+	'allowevent',
+	'unallowevent',
+	'unbanevent',
+	'listbannedevents',
+	'listallowedevents',
+	'listeventsneedingmoderation'
+];
+
+/** The longest invite claim relays accept. */
+export const MAX_CLAIM_LENGTH = 128;
+
+export function isGrantableMethod(method: string): boolean {
+	return (GRANTABLE_METHODS as string[]).includes(method);
+}
+
+/**
+ * Checks an invite claim the way relays do: not empty, no leading or trailing
+ * whitespace, no control characters and at most 128 characters. The claim is
+ * returned untouched, because relays match it exactly.
+ */
+export function validateClaim(claim: string): string {
+	if (claim.trim() === '') {
+		throw new Error('the claim must not be empty');
+	}
+	if (claim !== claim.trim()) {
+		throw new Error('the claim must not start or end with whitespace');
+	}
+	if ([...claim].length > MAX_CLAIM_LENGTH) {
+		throw new Error(`the claim must be at most ${MAX_CLAIM_LENGTH} characters`);
+	}
+	if ([...claim].some(isControlCharacter)) {
+		throw new Error('the claim must not contain control characters');
+	}
+	return claim;
+}
+
+/** Matches Rust's `char::is_control()`: C0, DEL and C1. */
+function isControlCharacter(character: string): boolean {
+	const code = character.codePointAt(0) ?? 0;
+	return code < 0x20 || code === 0x7f || (code >= 0x80 && code <= 0x9f);
+}
 
 /** JSON-RPC style request body. */
 export interface Nip86Request {

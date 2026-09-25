@@ -4,16 +4,18 @@
 
 An admin panel for relays that speak **NIP-86**, the relay management API. Sign in with a
 [NIP-07](https://github.com/nostr-protocol/nips/blob/master/07.md) browser extension, point it at a relay
-and manage it from one place: bans and allow lists, event moderation, blocked IPs, allowed kinds, roles
-and relay metadata.
+and manage it from one place: bans and allow lists, event moderation, blocked IPs, event kinds, roles,
+delegated admins, invite claims and relay metadata.
 
 ## Features
 
 - **NIP-07 sign-in** — the private key never leaves the browser extension. WatchTower only keeps the
   public key and the relay URL for the tab, in `sessionStorage`.
-- **NIP-86 management** — ban/unban and allow/unallow pubkeys, ban/allow events, block and unblock IPs,
-  allow and disallow kinds, change the relay name, description and icon, create, edit, delete and assign
-  roles.
+- **NIP-86 management** — ban/unban and allow/unallow pubkeys, ban, allow and unban events, block and
+  unblock IPs, allow and disallow kinds, change the relay name, description and icon, create, edit,
+  delete and assign roles.
+- **Delegated administration** — grant another pubkey the management methods it needs, so moderators get
+  just those verbs, and hand out invite claims, so new members can be let in one code at a time.
 - **NIP-98 authentication** — every management call is an HTTP request signed with a fresh `kind: 27235`
   event, including a `payload` hash and a nonce, so relays that reject replays work too.
 - **Moderation queue** — events the relay is holding back are listed, and the event itself is read over
@@ -22,8 +24,8 @@ and relay metadata.
   reconnected automatically when it drops.
 - **NIP-11 and NIP-43 aware** — the relay screen shows the relay's own information document, and the
   roles screen lists the roles the relay publishes as NIP-43 events.
-- **Confirmation before destructive actions** — banning, blocking, deleting a role and unassigning a
-  role all go through a modal dialog.
+- **Confirmation before destructive actions** — banning, blocking, deleting a role, revoking a method and
+  deleting an invite claim all go through a modal dialog.
 - **Light and dark theme**, monochrome layout, keyboard-friendly controls.
 
 ## Requirements
@@ -57,10 +59,12 @@ npm run preview # serve the build on 0.0.0.0:53000
 | `/admin`            | Connection status and the methods the relay reports         |
 | `/admin/moderation` | Events waiting for a decision, with their content           |
 | `/admin/pubkeys`    | Banned and allowed pubkeys                                  |
-| `/admin/events`     | Banned events, and allowing a single event                  |
+| `/admin/events`     | Banned and allowed events, with their event ids             |
 | `/admin/ips`        | Blocked IP addresses                                        |
-| `/admin/kinds`      | Allowed event kinds                                         |
+| `/admin/kinds`      | Allowed and disallowed event kinds                          |
 | `/admin/roles`      | Roles read from NIP-43 events, plus assignments             |
+| `/admin/admins`     | Methods granted to other pubkeys                            |
+| `/admin/invites`    | Invite claims waiting to be redeemed                        |
 | `/admin/relay`      | NIP-11 information and the relay name, description and icon |
 
 ## How it talks to relays
@@ -99,7 +103,10 @@ npm run format  # rewrite files with Prettier
 - NIP-86 has no method to list roles, so they are read from the relay's NIP-43 events (`kind: 33534`
   definitions and `kind: 13534` memberships). Relays that do not publish them keep the write-only role
   form, where the role id is typed by hand.
-- NIP-86 cannot lift an event ban; allow the event instead.
+- Some screens use methods that are proposed extensions to NIP-86 rather than part of it: delegated
+  administration (`assignmethod`, `unassignmethod`, `listmethodassignees`), invite claims (`createclaim`,
+  `deleteclaim`, `listclaims`) and lifting an event ban (`unbanevent`). WatchTower asks the relay which
+  methods it supports and hides the actions it does not.
 - NIP-46 (remote signers) is not supported.
 - A relay that gates reads needs the signed-in key to be allowed to read before the moderation and role
   screens can show anything.

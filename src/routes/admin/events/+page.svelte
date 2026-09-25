@@ -17,6 +17,7 @@
 	}
 
 	let banned = $state<ReasonedEvent[]>([]);
+	let allowed = $state<ReasonedEvent[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let success = $state<string | null>(null);
@@ -26,8 +27,6 @@
 	let banReason = $state('');
 	let allowId = $state('');
 	let allowReason = $state('');
-
-	const canListBanned = $derived(admin.supports('listbannedevents'));
 
 	onMount(async () => {
 		try {
@@ -41,12 +40,35 @@
 	});
 
 	async function refresh(): Promise<void> {
-		if (!canListBanned) return;
-		banned = await admin.call<ReasonedEvent[]>('listbannedevents');
+		if (admin.supports('listbannedevents')) {
+			banned = await admin.call<ReasonedEvent[]>('listbannedevents');
+		}
+		if (admin.supports('listallowedevents')) {
+			allowed = await admin.call<ReasonedEvent[]>('listallowedevents');
+		}
 	}
 
 	function toItems(items: ReasonedEvent[]): ValueListItem[] {
 		return items.map((item) => ({ value: item.id, label: item.id, reason: item.reason }));
+	}
+
+	async function change(
+		action: () => Promise<unknown>,
+		message: string,
+		key: string
+	): Promise<void> {
+		error = null;
+		success = null;
+		busy = key;
+		try {
+			await action();
+			await refresh();
+			success = message;
+		} catch (cause) {
+			error = describeError(cause);
+		} finally {
+			busy = null;
+		}
 	}
 
 	async function submit(action: 'ban' | 'allow'): Promise<void> {
@@ -110,7 +132,7 @@
 		<Notice tone="success">{success}</Notice>
 	{/if}
 
-	<Panel title="Banned events" description="listbannedevents">
+	<Panel title="Banned events" description="banevent / unbanevent / listbannedevents">
 		{#if loading}
 			<p class="flex items-center gap-2 text-sm text-muted">
 				<Spinner label="Loading the event ban list" />
@@ -120,20 +142,27 @@
 			<Notice>This relay does not support listbannedevents, so current bans cannot be shown.</Notice
 			>
 		{:else if admin.ready}
-			<ValueList items={toItems(banned)} empty="No events are banned." showAction={false} />
+			<ValueList
+				items={toItems(banned)}
+				empty="No events are banned."
+				actionLabel="Unban"
+				showAction={admin.supports('unbanevent')}
+				busyValue={busy}
+				onAction={(item) =>
+					void change(() => admin.call('unbanevent', [item.value]), 'Event unbanned.', item.value)}
+			/>
+			{#if !admin.supports('unbanevent')}
+				<p class="text-xs text-muted">
+					This relay cannot lift an event ban; allow the event instead so it is served.
+				</p>
+			{/if}
 		{/if}
-		<p class="text-xs text-muted">
-			NIP-86 has no method to lift a single event ban; allow the event instead so the relay accepts
-			it.
-		</p>
-	</Panel>
 
-	<Panel title="Ban an event" description="banevent">
 		{#if admin.lacks('banevent')}
 			<Notice>This relay does not support banevent.</Notice>
 		{:else if admin.ready}
 			<form
-				class="grid gap-3 sm:grid-cols-2"
+				class="grid gap-3 border-t border-line pt-4 sm:grid-cols-2"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submit('ban');
@@ -150,12 +179,37 @@
 		{/if}
 	</Panel>
 
-	<Panel title="Allow an event" description="allowevent">
+	<Panel title="Allowed events" description="allowevent / unallowevent / listallowedevents">
+		{#if loading}
+			<p class="flex items-center gap-2 text-sm text-muted">
+				<Spinner label="Loading the event allow list" />
+				Loading...
+			</p>
+		{:else if admin.lacks('listallowedevents')}
+			<Notice
+				>This relay does not support listallowedevents, so current entries cannot be shown.</Notice
+			>
+		{:else if admin.ready}
+			<ValueList
+				items={toItems(allowed)}
+				empty="No single events are allowed."
+				actionLabel="Unallow"
+				showAction={admin.supports('unallowevent')}
+				busyValue={busy}
+				onAction={(item) =>
+					void change(
+						() => admin.call('unallowevent', [item.value]),
+						'Event unallowed.',
+						item.value
+					)}
+			/>
+		{/if}
+
 		{#if admin.lacks('allowevent')}
 			<Notice>This relay does not support allowevent.</Notice>
 		{:else if admin.ready}
 			<form
-				class="grid gap-3 sm:grid-cols-2"
+				class="grid gap-3 border-t border-line pt-4 sm:grid-cols-2"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void submit('allow');

@@ -13,6 +13,8 @@ export interface Signer {
 export interface Nip07Provider {
 	getPublicKey(): Promise<string>;
 	signEvent(event: EventTemplate): Promise<NostrEvent>;
+	/** Set by window.nostr.js, the in-page fallback signer; extensions omit it. */
+	isWnj?: boolean;
 }
 
 /** The browser extension, or null when none is installed. */
@@ -22,6 +24,29 @@ export function browserNostrProvider(): Nip07Provider | null {
 		return candidate as Nip07Provider;
 	}
 	return null;
+}
+
+/** True when `window.nostr` comes from window.nostr.js rather than an extension. */
+export function isFallbackProvider(
+	provider: Nip07Provider | null = browserNostrProvider()
+): boolean {
+	return provider?.isWnj === true;
+}
+
+/**
+ * window.nostr.js mounts a floating widget and takes over `window.nostr`. It
+ * steps aside when the extension assigns the property, but extensions that
+ * redefine it leave the widget behind, so ask the library to tear the widget
+ * down whenever the provider in use is not its own.
+ */
+export function releaseFallbackWidget(): void {
+	const teardown = (globalThis as { destroyWnj?: unknown }).destroyWnj;
+	if (typeof teardown !== 'function' || isFallbackProvider()) return;
+	try {
+		(teardown as () => void)();
+	} catch {
+		// The widget was already gone.
+	}
 }
 
 /**

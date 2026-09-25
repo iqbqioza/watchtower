@@ -25,12 +25,20 @@
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
-		<!-- data-dof keeps window.nostr.js from adding `html, body { height: 100%;
+		<!-- window.nostr.js is only a fallback. It is loaded when no NIP-07 provider
+		     is there, because next to an extension it flashes its own widget before
+		     it steps aside. data-dof keeps it from adding `html, body { height: 100%;
 		     overflow: auto }`, which would make the body the scroller and shift the
-		     whole layout whenever a scrollbar appears. -->
-		<script
-			src="https://cdn.jsdelivr.net/npm/window.nostr.js/dist/window.nostr.min.js"
-			data-dof
-		></script>
+		     layout whenever a scrollbar appears. -->
+		<script>
+			if (!window.nostr) {
+				const fallback = document.createElement('script');
+				fallback.src = 'https://cdn.jsdelivr.net/npm/window.nostr.js/dist/window.nostr.min.js';
+				fallback.dataset.dof = '';
+				// The default position (top right) covers the theme toggle of the login page.
+				fallback.dataset.position = 'bottom';
+				document.body.append(fallback);
+			}
+		</script>
 	</body>
 </html>

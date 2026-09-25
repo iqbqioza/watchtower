@@ -9,8 +9,10 @@ delegated admins, invite claims and relay metadata.
 
 ## Features
 
-- **NIP-07 sign-in** — the private key never leaves the browser extension. WatchTower only keeps the
-  public key and the relay URL for the tab, in `sessionStorage`.
+- **NIP-07 sign-in** — with an extension installed the private key never leaves it. Without one,
+  [window.nostr.js](https://github.com/fiatjaf/window.nostr.js) is loaded as an in-page signer, and it
+  is left out entirely when an extension is there. WatchTower itself keeps only the public key and the
+  relay URL for the tab, in `sessionStorage`.
 - **NIP-86 management** — ban/unban and allow/unallow pubkeys, ban, allow and unban events, block and
   unblock IPs, allow and disallow kinds, change the relay name, description and icon, create, edit,
   delete and assign roles.
@@ -31,8 +33,9 @@ delegated admins, invite claims and relay metadata.
 ## Requirements
 
 - Node.js 24 or newer (the bundled devcontainer is ready to use)
-- A NIP-07 browser extension, such as nos2x or Alby
-- A relay with the NIP-86 management API enabled, and the extension's key allowed to manage it
+- A browser with a NIP-07 extension (such as nos2x or Alby) or the in-page fallback signer, which is
+  loaded automatically when no extension is present
+- A relay with the NIP-86 management API enabled, and that key allowed to manage it
 
 ## Getting started
 
@@ -42,7 +45,8 @@ npm run dev
 ```
 
 The development server listens on `0.0.0.0:53000`. Open <http://localhost:53000>, enter the relay URL
-(`wss://relay.example.com`), then approve the sign-in in the extension.
+(`wss://relay.example.com`), then approve the sign-in in the extension. Without an extension, the
+built-in signer's widget takes its place.
 
 Production build:
 
@@ -107,7 +111,9 @@ npm run format  # rewrite files with Prettier
   administration (`assignmethod`, `unassignmethod`, `listmethodassignees`), invite claims (`createclaim`,
   `deleteclaim`, `listclaims`) and lifting an event ban (`unbanevent`). WatchTower asks the relay which
   methods it supports and hides the actions it does not.
-- NIP-46 (remote signers) is not supported.
+- NIP-46 (remote signers) is not supported beyond the bunker logins the fallback signer offers.
+- Without a NIP-07 extension, the fallback signer and its widget are loaded from jsDelivr and sign in
+  the page, so a key it creates is kept in this browser instead of in an extension.
 - A relay that gates reads needs the signed-in key to be allowed to read before the moderation and role
   screens can show anything.
 

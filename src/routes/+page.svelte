@@ -10,15 +10,35 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import TextField from '$lib/components/TextField.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import { browserNostrProvider } from '$lib/nostr/signer';
+	import { browserNostrProvider, isFallbackProvider } from '$lib/nostr/signer';
 	import { session } from '$lib/session.svelte.js';
+
+	/** Where the signatures come from: an extension, the in-page fallback, or nowhere. */
+	type SignerSource = 'extension' | 'fallback' | 'none';
+
+	function detectSignerSource(): SignerSource {
+		const provider = browserNostrProvider();
+		if (!provider) return 'none';
+		return isFallbackProvider(provider) ? 'fallback' : 'extension';
+	}
 
 	let relayUrl = $state('wss://');
 	let error = $state<string | null>(null);
 	let busy = $state(false);
-	// Only the presence is kept in state; the provider object itself must not
-	// be wrapped in a proxy.
-	let hasExtension = $state(browserNostrProvider() !== null);
+	// Only the kind is kept in state; the provider object itself must not be
+	// wrapped in a proxy.
+	let signerSource = $state<SignerSource>(detectSignerSource());
+
+	// The fallback signer runs in this page, so it reads differently from an
+	// extension that keeps the key outside of it.
+	const signInLabel = $derived(
+		signerSource === 'fallback'
+			? 'Sign in with the built-in signer'
+			: 'Sign in with browser extension'
+	);
+	const busyLabel = $derived(
+		signerSource === 'fallback' ? 'Waiting for the built-in signer' : 'Waiting for the extension'
+	);
 
 	$effect(() => {
 		if (session.isAuthenticated) {
@@ -30,7 +50,7 @@
 	// Extensions can be injected after the first paint, so look again when the
 	// window gets focus (for example after installing one).
 	onMount(() => {
-		const check = () => (hasExtension = browserNostrProvider() !== null);
+		const check = () => (signerSource = detectSignerSource());
 		check();
 		window.addEventListener('focus', check);
 		return () => window.removeEventListener('focus', check);
@@ -44,7 +64,7 @@
 			await session.signIn(relayUrl);
 			await goto(resolve('/admin'));
 		} catch (cause) {
-			hasExtension = browserNostrProvider() !== null;
+			signerSource = detectSignerSource();
 			error = cause instanceof Error ? cause.message : String(cause);
 		} finally {
 			busy = false;
@@ -83,28 +103,39 @@
 				{/if}
 
 				<div class="flex justify-end">
-					<Button type="submit" variant="primary" disabled={busy || !hasExtension}>
+					<Button type="submit" variant="primary" disabled={busy || signerSource === 'none'}>
 						{#if busy}
-							<Spinner label="Waiting for the extension" />
-							Waiting for the extension...
+							<Spinner label={busyLabel} />
+							{busyLabel}...
 						{:else}
 							<Icon name="signin" />
-							Sign in with browser extension
+							{signInLabel}
 						{/if}
 					</Button>
 				</div>
 			</form>
 
-			{#if !hasExtension}
+			{#if signerSource === 'none'}
 				<Notice tone="warning">
 					No NIP-07 extension was found. Install one (for example nos2x or Alby), then focus this
 					window again.
 				</Notice>
+			{:else if signerSource === 'fallback'}
+				<Notice tone="info">
+					No NIP-07 extension was found, so window.nostr.js signs in this page. Use its widget to
+					create a key or connect a bunker.
+				</Notice>
 			{/if}
 
 			<p class="mt-6 border-t border-line pt-4 text-xs leading-relaxed text-muted">
-				Your key stays in the extension and is never sent to this page. The relay must accept the
-				extension's key for NIP-86.
+				{#if signerSource === 'fallback'}
+					The built-in signer runs in this page, so a key it creates is kept in this browser.
+					Install a NIP-07 extension to keep the key outside the page. The relay must accept the key
+					for NIP-86.
+				{:else}
+					Your key stays in the extension and is never sent to this page. The relay must accept the
+					extension's key for NIP-86.
+				{/if}
 			</p>
 		</main>
 	</div>

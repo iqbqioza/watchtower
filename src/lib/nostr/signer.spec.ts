@@ -1,7 +1,14 @@
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { finalizeEvent, getEventId, signSchnorr, verifyEvent } from './event';
-import { browserNostrProvider, LocalSigner, Nip07Signer, type Nip07Provider } from './signer';
+import {
+	browserNostrProvider,
+	isFallbackProvider,
+	LocalSigner,
+	Nip07Signer,
+	releaseFallbackWidget,
+	type Nip07Provider
+} from './signer';
 import type { EventTemplate } from './types';
 
 // BIP-340 test vector 0 secret key and one other key, for account switches.
@@ -242,5 +249,54 @@ describe('browserNostrProvider', () => {
 	it('ignores incomplete injections', () => {
 		vi.stubGlobal('nostr', { getPublicKey: async () => PUBKEY });
 		expect(browserNostrProvider()).toBeNull();
+	});
+});
+
+describe('isFallbackProvider', () => {
+	it('recognizes the in-page fallback signer', () => {
+		expect(isFallbackProvider(extension({ isWnj: true }))).toBe(true);
+		expect(isFallbackProvider(extension())).toBe(false);
+		expect(isFallbackProvider(null)).toBe(false);
+	});
+
+	it('looks at window.nostr when no provider is given', () => {
+		vi.stubGlobal('nostr', extension({ isWnj: true }));
+		expect(isFallbackProvider()).toBe(true);
+	});
+});
+
+describe('releaseFallbackWidget', () => {
+	it('tears the widget down when an extension took over', () => {
+		const destroyWnj = vi.fn();
+		vi.stubGlobal('destroyWnj', destroyWnj);
+		vi.stubGlobal('nostr', extension());
+
+		releaseFallbackWidget();
+
+		expect(destroyWnj).toHaveBeenCalledTimes(1);
+	});
+
+	it('keeps the widget while the fallback signer is in use', () => {
+		const destroyWnj = vi.fn();
+		vi.stubGlobal('destroyWnj', destroyWnj);
+		vi.stubGlobal('nostr', extension({ isWnj: true }));
+
+		releaseFallbackWidget();
+
+		expect(destroyWnj).not.toHaveBeenCalled();
+	});
+
+	it('does nothing when the fallback library never loaded', () => {
+		vi.stubGlobal('nostr', extension());
+		expect(() => releaseFallbackWidget()).not.toThrow();
+	});
+
+	it('swallows a teardown that fails', () => {
+		vi.stubGlobal('destroyWnj', () => {
+			throw new Error('already gone');
+		});
+		vi.stubGlobal('nostr', extension());
+
+		expect(() => releaseFallbackWidget()).not.toThrow();
 	});
 });

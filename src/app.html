@@ -25,6 +25,12 @@
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>
-		<script src="https://cdn.jsdelivr.net/npm/window.nostr.js/dist/window.nostr.min.js"></script>
+		<!-- data-dof keeps window.nostr.js from adding `html, body { height: 100%;
+		     overflow: auto }`, which would make the body the scroller and shift the
+		     whole layout whenever a scrollbar appears. -->
+		<script
+			src="https://cdn.jsdelivr.net/npm/window.nostr.js/dist/window.nostr.min.js"
+			data-dof
+		></script>
 	</body>
 </html>

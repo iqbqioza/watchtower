@@ -33,7 +33,15 @@
 		<script>
 			if (!window.nostr) {
 				const fallback = document.createElement('script');
-				fallback.src = 'https://cdn.jsdelivr.net/npm/window.nostr.js/dist/window.nostr.min.js';
+				// Pinned to an exact version and verified with subresource integrity:
+				// this script becomes the in-page signer for the whole panel, so a
+				// compromised CDN response must not be able to execute here. When
+				// bumping the version, replace the integrity hash to match.
+				fallback.src =
+					'https://cdn.jsdelivr.net/npm/window.nostr.js@0.8.1/dist/window.nostr.min.js';
+				fallback.integrity =
+					'sha384-C6TVSt1evr56iKy/quzIfLwkO/57bNpx+nFK/Hou/EA0Mr15fHwEsZN6GnMqlBEl';
+				fallback.crossOrigin = 'anonymous';
 				fallback.dataset.dof = '';
 				// The default position (top right) covers the theme toggle of the login page.
 				fallback.dataset.position = 'bottom';
